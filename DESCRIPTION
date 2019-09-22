@@ -1,0 +1,42 @@
+Package: scAI
+Type: Package
+Title: integrative analysis of single-cell transcriptomic and epigenomic profiles 
+Version: 0.1.0
+Author: Suoqin Jin, Lihua Zhang
+Maintainer: Suoqin Jin <suoqin.jin@uci.edu>, Lihua Zhang <lihuaz1@uci.edu>
+Description: an unsupervised method for integrative analysis of parallel single-cell transcriptomic and epigenomic profiles.
+Depends: R (>= 3.5.0)
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Imports:
+    Rcpp,
+    RcppEigen,
+    rfunctions,
+    doParallel,
+    foreach,
+    reticulate,
+    future,
+    future.apply,
+    pbapply,
+    irlba,
+    ggplot2,
+    Matrix,
+    expm,
+    Rtsne,
+    NNLM,
+    swne,
+    dplyr,
+    ggrepel, 
+    circlize,
+    igraph,
+    ComplexHeatmap,
+    RColorBrewer,
+    cowplot,
+    methods
+Remotes: jaredhuling/rfunctions,linxihui/NNLM,yanwu2014/swne,jokergoo/ComplexHeatmap
+LinkingTo: Rcpp, RcppEigen
+Suggests:
+    rmarkdown, knitr, roxygen2
+RoxygenNote: 6.1.1
+VignetteBuilder: knitr

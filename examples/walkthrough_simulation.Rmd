@@ -1,0 +1,142 @@
+
+---
+title: "Walkthrough with a simulated data"
+author: "Suoqin Jin, Lihua Zhang"
+output: html_document
+mainfont: Arial
+vignette: >
+  %\VignetteIndexEntry{Integrative analysis of single cell multi-omics data using scAI}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  root.dir = './'
+)
+```
+
+
+This walkthrough outlines the key steps of scAI using a simulated data. This simulated data consist of paired single-cell RNA-seq and ATAC-seq data, which were generated based on bulk RNA-seq and DNase-seq profiles from the same sample using MOSim package. 
+
+Load the required libraries
+```{r message=FALSE,warning=FALSE}
+library(scAI)
+library(dplyr)
+library(cowplot)
+```
+
+## Load data
+The algorithm takes a list of two digital data matrices as input. Genes/loci should be in rows and cells in columns. rownames and colnames should be included. Before running the scAI model, we need to normalize the data to account for library size and select highly variable features.
+
+```{r}
+load("/Users/suoqinjin/Documents/scAI/data/pairedData_simulation.rda")
+X <- pairedData_simulation$data # List of data matrix
+labels <- pairedData_simulation$labels # the true labels of cells, which is used for validation 
+```
+
+## Create a scAI object
+```{r}
+scAI_outs <- create_scAIobject(raw.data = X)
+```
+## Preprocess data
+Perform quality control to remove low-quality cells and genes, and normalize the data. 
+Since this is a simulated data, we do not need to normalize the data. Thus we set `assay = NULL`. 
+
+```{r, results='asis'}
+scAI_outs <- preprocessing(scAI_outs, assay = NULL, minFeatures = 200, minCells = 1, 
+                            libararyflag = F, logNormalize = F)
+```
+Add cell information into *pData* slot of the object
+```{r}
+scAI_outs <- addpData(scAI_outs, pdata = labels, pdata.name = "labels")
+```
+
+## Run scAI model
+As depending on the random initilization the results might differ, we run scAI multiple times (e.g. nrun = 5) and output the best result. User can also output results from all runs by setting *keep_all = TRUE*. The key parameters here are the number of factors/clusters (k). The `selectK` function can aid in selecting k. A suitable k is the one at which the magnitude of cophenetic correlation begins to fall.
+```{r}
+scAI_outs <- run_scAI(scAI_outs, K = 5, nrun = 5)
+```
+
+## Visualize the inferred biologically relevant components
+We plot the heatmap of the three learned low-rank matrices using hierarchical clustering. The ground truth labels of cells are used for validation (not necessary). 
+```{r, fig.width=7,fig.height = 8, fig.wide = TRUE, fig.align = "center"}
+lmHeatmap(scAI_outs, color.by = "labels")
+```
+
+## Visualize cells onto the low-dimensional space
+We can visualize cells onto the low-dimensional space using t-SNE, FIt-sne or UMAP. 
+Here, we perform comparison of the visualization of raw ATAC-seq data with the aggregated data. Cells are colored by the true labels.
+```{r, fig.width=7,fig.height = 3.5,  fig.wide = TRUE, fig.align = "center"}
+cell_coords.ori <- reducedDims(scAI_outs, data.use = scAI_outs@norm.data$ATAC, do.scale = F, method = "tsne", return.object = F)
+cell_coords.agg <- reducedDims(scAI_outs, data.use = scAI_outs@agg.data, do.scale = F, method = "tsne", return.object = F)
+
+gg1 <- cellVisualization(scAI_outs, cell_coords.ori, color.by = "labels",show.legend = F, title = "scATAC-seq")
+gg2 <- cellVisualization(scAI_outs, cell_coords.agg, color.by = "labels", ylabel = NULL, title = "Aggregated scATAC-seq")
+cowplot::plot_grid(gg1, gg2)
+```
+
+## Identify enriched features in each factor
+```{r}
+markers_RNA <- identifyFactorMarkers(scAI_outs, assay = 'RNA', n.top = 5)
+markers_ATAC <- identifyFactorMarkers(scAI_outs, assay = 'ATAC',  n.top = 5)
+```
+
+### Ranking the features (genes/loci) and show the top markers in each factor
+```{r, fig.width=8, fig.height=3,  fig.wide = TRUE, fig.align = "center"}
+featureRankingPlot(scAI_outs, assay = 'RNA', feature.show = markers_RNA$markers.top$features, top.p = 0.1, ylabel = "Gene score")
+featureRankingPlot(scAI_outs, assay = 'ATAC', feature.show = markers_ATAC$markers.top$features, top.p = 0.1, ylabel = "Locus score")
+
+```
+
+## Embedding cells, genes, loci and factors into 2D-dimensions using our new visualization method VscAI
+
+```{r message=FALSE,warning=FALSE}
+scAI_outs <- getEmbeddings(scAI_outs)
+
+```
+
+### Visualization of the embedding using VscAI
+User can provide a vector of the features (e.g., key marker genes/loci) to explore the biological meaning of the cell groups and enhance the interpretation of the data. Here, we select the top two features of each factor. 
+```{r, fig.width=10,fig.height=4, fig.align = "center"}
+genes.embed <- markers_RNA$markers.top %>% group_by(factors) %>% slice(1:2)
+genes.embed <- as.character(genes.embed$features)
+loci.embed <- markers_ATAC$markers.top %>% group_by(factors) %>% slice(1:2)
+loci.embed <- as.character(loci.embed$features)
+
+gg1 <- VscAIplot(scAI_outs, gene.use = genes.embed, loci.use = NULL, loci.use.names = NULL, color.by = "labels") 
+gg2 <- VscAIplot(scAI_outs, gene.use = NULL, loci.use = loci.embed, loci.use.names = loci.embed, color.by = "labels")
+cowplot::plot_grid(gg1, gg2)
+
+```
+
+## Feature plot
+We can overlay the expression of features, or the cell loading values onto the low-dimensional space, e.g., VscAI, tsne, umap
+```{r, fig.width=10, fig.height=2,  fig.wide = TRUE, fig.align = "center"}
+featureScoreVisualization(scAI_outs, feature.scores = t(scAI_outs@fit$H), feature.use = c('factor1','factor2','factor3','factor4'),  method = "VscAI", nCol = 4, cell.size = 0.1, show.legend = T, show.legend.combined = F)
+```
+
+## Identify cell clusters
+We can also identify cell clusters based on the inferred cell loading matrix using Leiden algorithm.
+```{r}
+scAI_outs <- identifyClusters(scAI_outs, resolution = 0.05)
+
+```
+
+### Identify differentially expressed features of each cell cluster
+```{r}
+markers.RNA.cluster <- identifyClusterMarkers(scAI_outs, assay = "RNA")
+markers.ATAC.cluster <- identifyClusterMarkers(scAI_outs, assay = 'ATAC',test.use = "wilcox")
+
+```
+
+### Generate a heatmap to show the expression patterns of top features in cell clusters
+```{r, fig.width=4,fig.height = 5, fig.align = "center"}
+markers.RNA.clusterTop <- markers.RNA.cluster$markers.top$features
+featureHeatmap(scAI_outs, assay = "RNA", feature.use = markers.RNA.clusterTop, group.by = "cluster")
+markers.ATAC.clusterTop <- markers.ATAC.cluster$markers.top$features
+featureHeatmap(scAI_outs, assay = "ATAC", feature.use = markers.ATAC.clusterTop, group.by = "cluster")
+
+```
