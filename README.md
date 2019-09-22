@@ -54,7 +54,7 @@ The path_to_file would represent the full path and file name:
 - On Windows it will look something like this: "C:\Downloads\scAI_0.1.0.tar.gz".
 
 
-### Additional installation steps (possibly)
+### Additional installation steps for downstream analysis (possibly)
 - Install other dependencies
 
 scAI provides functionality for further data exploration, analysis, and visualization. A couple of excellent packages need to be installed. 
