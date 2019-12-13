@@ -10,6 +10,8 @@ scAI_theme_opts <- function() {
   theme(strip.background = element_rect(colour = "white", fill = "white")) +
     theme_classic() +
     theme(panel.border = element_blank()) +
+    theme(axis.line.x = element_line(color = "black")) +
+    theme(axis.line.y = element_line(color = "black")) +
     theme(panel.grid.minor.x = element_blank(), panel.grid.minor.y = element_blank()) +
     theme(panel.grid.major.x = element_blank(), panel.grid.major.y = element_blank()) +
     theme(panel.background = element_rect(fill = "white")) +
@@ -41,7 +43,7 @@ lmHeatmap <- function(object, color.by, colors.use = NULL,do.sampling = T ){
   df<- data.frame(group = label); rownames(df) <- colnames(H)
 
   if (is.null(colors.use)) {
-    colors.use <- brewer.pal(length(unique(label)), "Set1")
+    colors.use <- scPalette(length(unique(label)))
   }
   cell.cols.assigned <- setNames(colors.use, unique(as.character(df$group)))
   col_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned),annotation_name_side = "left",simple_anno_size = grid::unit(0.2, "cm"))
@@ -96,21 +98,21 @@ lmHeatmap <- function(object, color.by, colors.use = NULL,do.sampling = T ){
                 row_title = "Loci", row_title_rot = 90,row_names_gp = gpar(fontsize = 10),
                 heatmap_legend_param = list(title = "W2", at = c(0, 0.5, 1),legend_width = unit(0.0001, "cm"),legend_height = unit(2, "cm"),labels_gp = gpar(font = 6))
   )
-  gb_ht1 = grid.grabExpr(draw(ht1))
-  gb_ht2 = grid.grabExpr(draw(ht2))
-  gb_ht3 = grid.grabExpr(draw(ht3))
-  grid.newpage()
-  pushViewport(viewport(x = 0.2,y = 1, width = 0.5, height = 0.3, just = c("left", "top")))
-  grid.draw(gb_ht1)
-  popViewport()
+  gb_ht1 = grid::grid.grabExpr(draw(ht1))
+  gb_ht2 = grid::grid.grabExpr(draw(ht2))
+  gb_ht3 = grid::grid.grabExpr(draw(ht3))
+  grid::grid.newpage()
+  grid::pushViewport(viewport(x = 0.2,y = 1, width = 0.5, height = 0.3, just = c("left", "top")))
+  grid::grid.draw(gb_ht1)
+  grid::popViewport()
 
-  pushViewport(viewport(x = 0.1, y = 0.1, width = 0.2, height = 0.5, just = c("left", "bottom")))
-  grid.draw(gb_ht2)
-  popViewport()
+  grid::pushViewport(viewport(x = 0.1, y = 0.1, width = 0.2, height = 0.5, just = c("left", "bottom")))
+  grid::grid.draw(gb_ht2)
+  grid::popViewport()
 
-  pushViewport(viewport(x = 0.5, y = 0.1, width = 0.2, height = 0.5, just = c("left", "bottom")))
-  grid.draw(gb_ht3)
-  popViewport()
+  grid::pushViewport(viewport(x = 0.5, y = 0.1, width = 0.2, height = 0.5, just = c("left", "bottom")))
+  grid::grid.draw(gb_ht3)
+  grid::popViewport()
 }
 
 
@@ -143,62 +145,113 @@ lmHeatmap <- function(object, color.by, colors.use = NULL,do.sampling = T ){
 #' @importFrom RColorBrewer brewer.pal
 #' @importFrom grDevices colorRampPalette
 #' @importFrom stats median
-cellVisualization <- function(object, cell_coords, color.by, labels.order = NULL, colors.use = NULL, brewer.use = T,
-                              xlabel = "tSNE1", ylabel = "tSNE2", title = NULL,
+cellVisualization <- function(object, cell_coords, color.by, labels.order = NULL, colors.use = NULL, brewer.use = FALSE,
+                              xlabel = "UMAP1", ylabel = "UMAP2", title = NULL,
                               label.size = 4, cell.size = 0.3, font.size = 10, do.label = F, show.legend = T, show.axes = T) {
 
 
-  labels <- object@pData[[color.by]]
+    labels <- object@pData[[color.by]]
 
-  if (is.null(labels.order) == FALSE) {
-    labels <- factor(labels, levels = labels.order)
-  } else if (class(labels) != "factor") {
-    labels <- as.factor(labels)
-  }
+    if (is.null(labels.order) == FALSE) {
+        labels <- factor(labels, levels = labels.order)
+    } else if (class(labels) != "factor") {
+        labels <- as.factor(labels)
+    }
 
-  df <- data.frame(x = cell_coords[, 1], y = cell_coords[, 2], group = labels)
+    df <- data.frame(x = cell_coords[, 1], y = cell_coords[, 2], group = labels)
 
-  gg <- ggplot(data = df, aes(x, y)) +
+    gg <- ggplot(data = df, aes(x, y)) +
     geom_point(aes(colour = labels), size = cell.size) + scAI_theme_opts() +
     theme(text = element_text(size = 10)) + labs(title = title, x = xlabel, y = ylabel) +
-    guides(colour = guide_legend(override.aes = list(size = label.size)))
-  numCluster = length(unique((labels)))
-  if (is.null(colors.use)) {
-    if (brewer.use) {
-      if (numCluster < 9) {
-        colors <- RColorBrewer::brewer.pal(numCluster, "Set1")
-      } else {
-        colors <- grDevices::colorRampPalette(RColorBrewer::brewer.pal(9, "Set1"))(numCluster)
-      }
-      names(colors) <- levels(labels)
-      gg <- gg + scale_color_manual(values = colors)
+    guides(colour = guide_legend(override.aes = list(size = label.size))) +
+    theme(legend.title = element_blank())
+    numCluster = length(unique((labels)))
+    if (is.null(colors.use)) {
+        colors <- scPalette(numCluster)
+        names(colors) <- levels(labels)
+        gg <- gg + scale_color_manual(values = colors)
+        if (brewer.use) {
+            if (numCluster < 9) {
+                colors <- RColorBrewer::brewer.pal(numCluster, "Set1")
+            } else {
+                colors <- grDevices::colorRampPalette(RColorBrewer::brewer.pal(9, "Set1"))(numCluster)
+            }
+            names(colors) <- levels(labels)
+            gg <- gg + scale_color_manual(values = colors)
+        }
+    } else {
+        gg <- gg + scale_color_manual(values = colors.use)
     }
-  } else {
-    gg <- gg + scale_color_manual(values = colors.use)
-  }
 
-  if (do.label) {
-    centers <- df %>% dplyr::group_by(group) %>% dplyr::summarize(x = median(x = x), y = median(x = y))
-    gg <- gg + ggrepel::geom_text_repel(data = centers, mapping = aes(x, y, label = group), size = label.size)
-  }
+    if (do.label) {
+        centers <- df %>% dplyr::group_by(group) %>% dplyr::summarize(x = median(x = x), y = median(x = y))
+        gg <- gg + ggrepel::geom_text_repel(data = centers, mapping = aes(x, y, label = group), size = label.size)
+    }
 
-  if (!show.legend) {
-    gg <- gg + theme(legend.position = "none")
-  }
+    if (!show.legend) {
+        gg <- gg + theme(legend.position = "none")
+    }
 
-  if (!show.axes) {
-    gg <- gg + theme_void()
-  }
-  gg
+    if (!show.axes) {
+        gg <- gg + theme_void()
+    }
+    gg
 }
 
+#' Generate colors from a customed color palette
+#'
+#' @param n number of colors
+#'
+#' @return A color palette for plotting
+#' @importFrom grDevices colorRampPalette
+#'
+#' @export
+#'
+scPalette <- function(n) {
+    colorSpace <- c(
+    '#E41A1C',
+    '#377EB8',
+    '#4DAF4A',
+    '#984EA3',
+    '#F29403',
+    '#F781BF',
+    '#BC9DCC',
+    '#A65628',
+    '#54B0E4',
+    '#222F75',
+    '#1B9E77',
+    '#B2DF8A',
+    '#E3BE00',
+    '#FB9A99',
+    '#E7298A',
+    '#910241',
+    '#00CDD1',
+    '#A6CEE3',
+    '#CE1261',
+    '#5E4FA2',
+    '#8CA77B',
+    '#00441B',
+    '#DEDC00',
+    '#B3DE69',
+    '#8DD3C7',
+    '#999999'
+    )
+    if (n <= length(colorSpace)) {
+        colors <- colorSpace[1:n]
+    } else {
+        colors <- grDevices::colorRampPalette(colorSpace)(n)
+    }
+    return(colors)
+}
 
 
 #' Ranking the features (genes/loci) and show the top markers in each factor
 #'
 #' @param object scAI object
 #' @param assay define an assay to show, e.g., assay = "RNA"
+#' @param factor.show a set of factors to show
 #' @param feature.show a vector of the features that are labeled on the plot
+#' @param ncol number of columns in plot
 #' @param feature.show.names instead of the default name in feature.show, one can show the manual feature name such as the enriched motif
 #' @param top.p showing the features in top ranking
 #' @param features.diff a table includes the differential features, returned from identifyfactorMakrers.R
@@ -208,64 +261,68 @@ cellVisualization <- function(object, cell_coords, color.by, labels.order = NULL
 #' @export
 #'
 #' @examples
-featureRankingPlot <- function(object, assay, feature.show = NULL, feature.show.names = NULL, top.p = 0.5, features.diff = NULL, ylabel = "Weight") {
-  W <- object@fit$W[[assay]]
-  features <- rownames(W)
-  K = ncol(W)
-  W <- sweep(W,1,rowSums(W),FUN = `/`)
-  W[is.na(W)] <- 0
+featureRankingPlot <- function(object, assay, factor.show = NULL, ncol = NULL, feature.show = NULL, feature.show.names = NULL, top.p = 0.5, features.diff = NULL, ylabel = "Weight") {
+    W <- object@fit$W[[assay]]
+    features <- rownames(W)
+    if (!is.null(factor.show)) {
+        W <- W[, factor.show]
+    }
+    K = ncol(W)
+    W <- sweep(W,1,rowSums(W),FUN = `/`)
+    W[is.na(W)] <- 0
 
-  Wg <- vector("list", K)
-  for (i in 1:K) {
-    W_order <- sort(W[,i],decreasing=F, index.return = T)
-    features_ordered <- features[W_order$ix]
-    if (!is.null(features.diff)) {
-      features.diffi <- as.character(features.diff$features[features.diff$factors == i])
-    }else {
-      features.diffi <- as.character(features)
+    Wg <- vector("list", K)
+    for (i in 1:K) {
+        W_order <- sort(W[,i],decreasing=F, index.return = T)
+        features_ordered <- features[W_order$ix]
+        if (!is.null(features.diff)) {
+            features.diffi <- as.character(features.diff$features[features.diff$factors == i])
+        }else {
+            features.diffi <- as.character(features)
+        }
+
+        if (!is.null(feature.show)) {
+            features.diffi <- intersect(features.diffi, feature.show)
+        }
+        idx <- match(features.diffi, features_ordered)
+        data_show <- matrix(0, nrow(W), 1); data_show[idx] <- 1
+        if (!is.null(top.p) & top.p < 1) {
+            idx_bottom <- seq_len(floor((1-top.p)*nrow(W))); data_show[idx_bottom] <- 0
+        }
+
+        Wg[[i]] <- cbind(Weight =  as.numeric(W_order$x), factor = colnames(W)[i], Ranking = seq_len(nrow(W)), Show = as.numeric(data_show), Genes = features_ordered)
+    }
+    data <- Wg[[1]]
+    for (i in 2:K) {
+        data <- rbind(data, Wg[[i]])
     }
 
-    if (!is.null(feature.show)) {
-      features.diffi <- intersect(features.diffi, feature.show)
+    df <- as.data.frame(data, stringsAsFactors=FALSE)
+    colnames(df) <- c("Weight", "factor", "Ranking", "Show","Genes")
+    df$factor <- paste('Factor',df$factor, sep = " ")
+    df$Weight <- as.numeric(as.character(df$Weight))
+    df$Ranking <- as.numeric(as.character(df$Ranking))
+    df$Show <- as.numeric(as.character(df$Show))
+
+    if (!is.null(feature.show.names)) {
+        idx <- which(df$Genes %in% feature.show)
+        df$Genes[idx] <- feature.show.names
     }
-    idx <- match(features.diffi, features_ordered)
-    data_show <- matrix(0, nrow(W), 1); data_show[idx] <- 1
-    if (!is.null(top.p) & top.p < 1) {
-      idx_bottom <- seq_len(floor((1-top.p)*nrow(W))); data_show[idx_bottom] <- 0
-    }
 
-    Wg[[i]] <- cbind(Weight =  as.numeric(W_order$x), factor = i, Ranking = seq_len(nrow(W)), Show = as.numeric(data_show), Genes = features_ordered)
-  }
-  data <- Wg[[1]]
-  for (i in 2:K) {
-    data <- rbind(data, Wg[[i]])
-  }
+    data_topFeature = df[df$Show == 1,]
 
-  df <- as.data.frame(data, stringsAsFactors=FALSE)
-  colnames(df) <- c("Weight", "factor", "Ranking", "Show","Genes")
-  df$factor <- paste('Factor',df$factor, sep = " ")
-  df$Weight <- as.numeric(as.character(df$Weight))
-  df$Ranking <- as.numeric(as.character(df$Ranking))
-  df$Show <- as.numeric(as.character(df$Show))
-
-  if (!is.null(feature.show.names)) {
-    idx <- which(df$Genes %in% feature.show)
-    df$Genes[idx] <- feature.show.names
-  }
-
-  data_topFeature = df[df$Show == 1,]
-
-  gg <- ggplot(df, aes(Ranking, Weight)) +
-    geom_line(colour = "grey80",size = 1) + facet_wrap(~ factor, ncol = 5, scales = "free")+
+    gg <- ggplot(df, aes(Ranking, Weight)) +
+    geom_line(colour = "grey80",size = 1) + facet_wrap(~ factor, ncol = ncol, scales = "free")+
     scAI_theme_opts()+
     theme(text = element_text(size = 10), axis.text.x = element_blank(),axis.ticks.x = element_blank()) +
     theme(strip.background = element_rect(fill="grey80")) +
     ylab(ylabel) +
     geom_point(size = 3, shape = 1, data = data_topFeature) +
     ggrepel::geom_text_repel(aes(label = Genes), data = data_topFeature, segment.color = "grey50", segment.alpha = 1,
-                             direction = "y",nudge_x = -150, hjust = 1,size = 3,segment.size = 0.3) # hjust = 1 for right-align
-  gg
+    direction = "y",nudge_x = -150, hjust = 1,size = 3,segment.size = 0.3) # hjust = 1 for right-align
+    gg
 }
+
 
 
 
@@ -297,7 +354,7 @@ featureRankingPlot <- function(object, assay, feature.show = NULL, feature.show.
 #' @importFrom ggplot2 guide_legend guides labs element_text theme xlab ylab scale_fill_manual scale_color_manual scale_shape_manual scale_size_manual
 
 VscAIplot <- function(object, gene.use, loci.use, loci.use.names, color.by,
-                      labels.order = NULL, colors.use = NULL, brewer.use = T, xlabel = "VscAI1",
+                      labels.order = NULL, colors.use = NULL, brewer.use = FALSE, xlabel = "VscAI1",
                       ylabel = "VscAI2", title = NULL, label.size = 3, cell.size = 0.3, font.size = 10,
                       do.label = T, show.legend = T, show.axes = T) {
 
@@ -325,11 +382,14 @@ VscAIplot <- function(object, gene.use, loci.use, loci.use.names, color.by,
 
   numCluster = length(unique((labels)))
   if (is.null(colors.use)) {
+    colors <- scPalette(numCluster)
+    names(colors) <- levels(labels)
+    gg <- gg + scale_color_manual(values = colors)
     if (brewer.use) {
       if (numCluster < 9) {
         colors <- RColorBrewer::brewer.pal(numCluster, "Set1")
       } else {
-        colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "Set1"))(numCluster)
+        colors <- grDevices::colorRampPalette(RColorBrewer::brewer.pal(9, "Set1"))(numCluster)
       }
       names(colors) <- levels(labels)
       gg <- gg + scale_color_manual(values = colors)
@@ -548,6 +608,10 @@ featureScoreVisualization <- function(object, feature.use = NULL, feature.scores
 #' @param assay define an assay to show, e.g., assay = "RNA"
 #' @param feature.use a vector of features to show
 #' @param group.by the name of the variable in pData, defining cell groups. cells are grouped together
+#' @param color.use colors for the cell clusters
+#' @param names.show whether show the feature names
+#' @param size.names the font size of the feature names
+#' @param use.agg whether use aggregated data
 #' @param rescaling whether rescale each feature across all the cells
 #'
 #' @return
@@ -555,33 +619,46 @@ featureScoreVisualization <- function(object, feature.use = NULL, feature.scores
 #'
 #' @examples
 #' @importFrom circlize colorRamp2
-featureHeatmap <- function(object, assay, feature.use,  group.by, rescaling = T) {
+#' @importFrom ComplexHeatmap Heatmap HeatmapAnnotation
+featureHeatmap <- function(object, assay, feature.use,  group.by, color.use = NULL, use.agg = TRUE, rescaling = TRUE, names.show = TRUE, size.names = 8) {
+    if (assay == "RNA") {
+      data <- object@norm.data[[assay]]
+    } else {
+        if (use.agg) {
+          data <- object@agg.data
+        } else {
+          data <- object@norm.data[[assay]]
+        }
+    }
 
-  data <- as.matrix(object@norm.data[[assay]])
-  groups = object@pData[[group.by]]
+    groups = object@pData[[group.by]]
+    feature.use <- feature.use[feature.use %in% rownames(data)]
+    data.use <- data[feature.use,]
 
-  feature.use <- intersect(feature.use, rownames(data))
-  data.use <- data[feature.use,]
+    if(rescaling) {
+        data.use = Matrix::t(scale(Matrix::t(data.use), center = T))
+    }
+    data.use <- as.matrix(data.use)
 
-  if(rescaling) {
-    data.use = t(scale(t(data.use), center = T))
-  }
+    cell.order <- order(groups)
+    data.use <- data.use[,cell.order]
+    numCluster <- length(unique(groups))
 
-  cell.order <- order(groups)
-  data.use <- data.use[,cell.order]
-  numCluster <- length(unique(groups))
+    if (is.null(color.use)) {
+        color.use <- scPalette(numCluster)
+    }
 
-  colorGate = structure(brewer.pal(numCluster, "Set1"), names = as.character(unique(groups)))
+    colorGate = structure(color.use, names = as.character(levels(groups)))
 
-  col_annotation = HeatmapAnnotation(group = sort(groups),col = list(group = colorGate),
-                                     annotation_name_side = "left",simple_anno_size = unit(0.2, "cm"))
-  Heatmap(data.use,name = "zscore",
-          col = colorRamp2(c(-2, 0, 2), c("#2166ac", "#f7f7f7", "#b2182b"),space = "LAB"),
-          cluster_rows = FALSE, cluster_columns = FALSE, show_column_names = FALSE,
-          show_row_names = TRUE, row_names_side = "left", row_names_rot = 0,row_names_gp = gpar(fontsize = 8),
-          width = unit(6, "cm"),
-          bottom_annotation = col_annotation,
-          heatmap_legend_param = list(title = NULL, legend_width = unit(0.0001, "cm"),labels_gp = gpar(font = 6))
-  )
-
+    col_annotation = HeatmapAnnotation(group = sort(groups),col = list(group = colorGate),
+    annotation_name_side = "left",simple_anno_size = unit(0.2, "cm"))
+    Heatmap(data.use,name = "zscore",
+    col = colorRamp2(c(-2, 0, 2), c("#2166ac", "#f7f7f7", "#b2182b"),space = "LAB"),
+    cluster_rows = FALSE, cluster_columns = FALSE, show_column_names = FALSE,
+    show_row_names = names.show, row_names_side = "left", row_names_rot = 0,row_names_gp = gpar(fontsize = size.names),
+    width = unit(6, "cm"),
+    bottom_annotation = col_annotation,
+    heatmap_legend_param = list(title = NULL, legend_width = unit(0.0001, "cm"),labels_gp = gpar(font = 6))
+    )
 }
+
