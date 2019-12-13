@@ -24,6 +24,7 @@ All the R markdown used to generate the walkthroughs can be found under the /exa
 
 - Simulated single cell RNA-seq and ATAC-seq data [(Walkthrough)](https://htmlpreview.github.io/?https://github.com/sqjin/scAI/blob/master/examples/walkthrough_simulation.html):  This simulated data were generated based on bulk RNA-seq and DNase-seq profiles from the same sample using MOSim package. 
 - Paired single cell RNA-seq and ATAC-seq data of A549 cells [(Walkthrough)](https://htmlpreview.github.io/?https://github.com/sqjin/scAI/blob/master/examples/walkthrough_A549dataset.html): This data describes lung adenocarcinoma-derived A549 cells after 0, 1 and 3 hours of 100 nM dexamethasone treatment. 
+- Paired single-cell RNA-seq and single-cell methylation data of mESC [(Walkthrough)](https://htmlpreview.github.io/?https://github.com/sqjin/scAI/blob/master/examples/walkthrough_mESCdataset.html): This data describes the differentiation of mouse embryonic stem cells (mESC). 
 
 
 ## Installation 
@@ -50,8 +51,8 @@ Download source codes [here](https://github.com/sqjin/scAI/blob/master/scAI_0.1.
 install.packages(path_to_file, type = 'source', rep = NULL)
 ```
 The path_to_file would represent the full path and file name:
-- On macOS/UNIX it will look like this: "~/Downloads/scAI_0.1.0.tar.gz".
-- On Windows it will look something like this: "C:\Downloads\scAI_0.1.0.tar.gz".
+- On macOS/UNIX it will look like this: "~/Downloads/scAI_0.1.1.tar.gz".
+- On Windows it will look something like this: "C:\Downloads\scAI_0.1.1.tar.gz".
 
 
 ### Additional installation steps for downstream analysis (possibly)
