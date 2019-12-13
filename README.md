@@ -17,6 +17,7 @@ Once the single cell multi-omics data are decomposed into multiple biologically 
 ## Packages
 scAI has been implemented as both **R package** and **MATLAB package**. In each package, we provide example workflows that outline the key steps and unique features of scAI. The **MATLAB package and examples** are available [here](https://github.com/amsszlh/scAI).
 
+[![DOI](https://zenodo.org/badge/210091414.svg)](https://zenodo.org/badge/latestdoi/210091414)
 
 ## Examples and Walkthroughs
 
