@@ -35,31 +35,6 @@ A parition of clusters as a vector of integers
 \description{
 Implements the Leiden clustering algorithm in R using reticulate to run the Python version. Requires the python "leidenalg" and "igraph" modules to be installed. Returns a vector of partition indices.
 }
-\examples{
-#check if python is availble
-modules <- reticulate::py_module_available("leidenalg") && reticulate::py_module_available("igraph")
-if(modules){
-#generate partitions
-partition <- leiden(adjacency_matrix)
-table(partition)
-
-#generate partitions at a lower resolution
-partition <- leiden(adjacency_matrix, resolution_parameter = 0.5)
-table(partition)
-
-#generate example weights
-weights <- sample(1:10, sum(adjacency_matrix!=0), replace=TRUE)
-partition <- leiden(adjacency_matrix, weights = weights)
-table(partition)
-
-#generate example weighted matrix
-adjacency_matrix[adjacency_matrix == 1] <- weights
-partition <- leiden(adjacency_matrix)
-table(partition)
-}
-
-
-}
 \keyword{graph}
 \keyword{igraph}
 \keyword{mvtnorm}

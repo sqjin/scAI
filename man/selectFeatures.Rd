@@ -5,7 +5,7 @@
 \title{select highly variable features}
 \usage{
 selectFeatures(object, assay = "RNA", do.plot = TRUE, do.text = TRUE,
-  x.low.cutoff = 0.01, x.high.cutoff = 3.5, y.cutoff = 1,
+  x.low.cutoff = 0.01, x.high.cutoff = 3.5, y.cutoff = 0.5,
   y.high.cutoff = Inf, num.bin = 20, pch.use = 16,
   col.use = "black", cex.text.use = 0.5)
 }

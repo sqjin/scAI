@@ -4,14 +4,18 @@
 \alias{featureRankingPlot}
 \title{Ranking the features (genes/loci) and show the top markers in each factor}
 \usage{
-featureRankingPlot(object, assay, feature.show = NULL,
-  feature.show.names = NULL, top.p = 0.5, features.diff = NULL,
-  ylabel = "Weight")
+featureRankingPlot(object, assay, factor.show = NULL, ncol = NULL,
+  feature.show = NULL, feature.show.names = NULL, top.p = 0.5,
+  features.diff = NULL, ylabel = "Weight")
 }
 \arguments{
 \item{object}{scAI object}
 
 \item{assay}{define an assay to show, e.g., assay = "RNA"}
+
+\item{factor.show}{a set of factors to show}
+
+\item{ncol}{number of columns in plot}
 
 \item{feature.show}{a vector of the features that are labeled on the plot}
 

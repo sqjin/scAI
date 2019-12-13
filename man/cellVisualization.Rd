@@ -5,8 +5,8 @@
 \title{visualize cells in 2D-dimensional space}
 \usage{
 cellVisualization(object, cell_coords, color.by, labels.order = NULL,
-  colors.use = NULL, brewer.use = T, xlabel = "tSNE1",
-  ylabel = "tSNE2", title = NULL, label.size = 4, cell.size = 0.3,
+  colors.use = NULL, brewer.use = FALSE, xlabel = "UMAP1",
+  ylabel = "UMAP2", title = NULL, label.size = 4, cell.size = 0.3,
   font.size = 10, do.label = F, show.legend = T, show.axes = T)
 }
 \arguments{

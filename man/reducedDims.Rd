@@ -5,7 +5,7 @@
 \title{Perform dimensional reduction}
 \usage{
 reducedDims(object, data.use = object@fit$H, do.scale = TRUE,
-  do.center = TRUE, return.object = TRUE, method = "tsne",
+  do.center = TRUE, return.object = TRUE, method = "umap",
   dim.embed = 2, dim.use = NULL, perplexity = 30, theta = 0.5,
   check_duplicates = F, rand.seed = 42L, FItsne.path = NULL,
   dimPC = 40, do.fast = TRUE, weight.by.var = TRUE,

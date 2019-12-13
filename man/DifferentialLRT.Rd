@@ -13,9 +13,6 @@ DifferentialLRT(x, y, xmin = 0)
 
 \item{xmin}{threshold for the values in the vector}
 }
-\value{
-
-}
 \description{
 likelood ratio test
 }

@@ -5,7 +5,7 @@
 \title{VscAI visualize the genes, loci and factors that separate cell states on two dimensions alongside the cells}
 \usage{
 VscAIplot(object, gene.use, loci.use, loci.use.names, color.by,
-  labels.order = NULL, colors.use = NULL, brewer.use = T,
+  labels.order = NULL, colors.use = NULL, brewer.use = FALSE,
   xlabel = "VscAI1", ylabel = "VscAI2", title = NULL,
   label.size = 3, cell.size = 0.3, font.size = 10, do.label = T,
   show.legend = T, show.axes = T)

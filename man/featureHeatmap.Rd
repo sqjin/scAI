@@ -4,7 +4,9 @@
 \alias{featureHeatmap}
 \title{generate a heatmap for the expression of differential features across different cell groups}
 \usage{
-featureHeatmap(object, assay, feature.use, group.by, rescaling = T)
+featureHeatmap(object, assay, feature.use, group.by, color.use = NULL,
+  use.agg = TRUE, rescaling = TRUE, names.show = TRUE,
+  size.names = 8)
 }
 \arguments{
 \item{object}{scAI object}
@@ -15,7 +17,15 @@ featureHeatmap(object, assay, feature.use, group.by, rescaling = T)
 
 \item{group.by}{the name of the variable in pData, defining cell groups. cells are grouped together}
 
+\item{color.use}{colors for the cell clusters}
+
+\item{use.agg}{whether use aggregated data}
+
 \item{rescaling}{whether rescale each feature across all the cells}
+
+\item{names.show}{whether show the feature names}
+
+\item{size.names}{the font size of the feature names}
 }
 \description{
 generate a heatmap for the expression of differential features across different cell groups

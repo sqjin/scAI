@@ -4,9 +4,9 @@
 \alias{run_scAI}
 \title{run scAI model}
 \usage{
-run_scAI(object, K, nrun = 5, keep_all = F, s = 0.25, alpha = 1,
-  lambda = 1e+05, gamma = 1, maxIter = 500, stop_rule = 1,
-  init = NULL, rand.seed = 1)
+run_scAI(object, K, nrun = 5, hvg.use1 = FALSE, hvg.use2 = FALSE,
+  keep_all = F, s = 0.25, alpha = 1, lambda = 1e+05, gamma = 1,
+  maxIter = 500, stop_rule = 1, init = NULL, rand.seed = 1)
 }
 \arguments{
 \item{object}{scAI object}
@@ -14,6 +14,10 @@ run_scAI(object, K, nrun = 5, keep_all = F, s = 0.25, alpha = 1,
 \item{K}{Rank of the inferred factor}
 
 \item{nrun}{Number of times to repreat the running}
+
+\item{hvg.use1}{whether use high variable genes for RNA-seq data}
+
+\item{hvg.use2}{whether use high variable genes for ATAC-seq data}
 
 \item{keep_all}{Whether keep all the results from multiple runs}
 

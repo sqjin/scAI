@@ -2,11 +2,11 @@
 % Please edit documentation in R/scAI_model.R
 \name{identifyClusterMarkers}
 \alias{identifyClusterMarkers}
-\title{Identify enriched features in each cell cluster}
+\title{Identify markers in each cell cluster}
 \usage{
-identifyClusterMarkers(object, assay, features = NULL,
+identifyClusterMarkers(object, assay, features = NULL, use.agg = TRUE,
   test.use = "bimod", thresh.pc = 0.05, thresh.fc = 0.25,
-  thresh.p = 0.05, n.top = 10)
+  thresh.p = 0.05)
 }
 \arguments{
 \item{object}{scAI object}
@@ -15,6 +15,8 @@ identifyClusterMarkers(object, assay, features = NULL,
 
 \item{features}{a vector of features}
 
+\item{use.agg}{whether use the aggregated data}
+
 \item{test.use}{which test to use ("bimod" or "wilcox")}
 
 \item{thresh.pc}{Threshold of the percent of cells enriched in one cluster}
@@ -22,9 +24,7 @@ identifyClusterMarkers(object, assay, features = NULL,
 \item{thresh.fc}{Threshold of Fold Change}
 
 \item{thresh.p}{Threshold of p-values}
-
-\item{n.top}{Number of top features to be returned}
 }
 \description{
-Identify enriched features in each cell cluster
+Identify markers in each cell cluster
 }
