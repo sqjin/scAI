@@ -91,55 +91,63 @@ create_scAIobject <- function(raw.data, do.sparse = T) {
 #'
 #' @examples
 preprocessing <- function(object, assay = list("RNA", "ATAC"), minFeatures = 200, minCells = 3, minCounts = NULL, maxCounts = NULL, libararyflag = TRUE, logNormalize = TRUE) {
-  if (is.null(assay)) {
-    for (i in 1:length(object@raw.data)) {
-      object@norm.data[[i]] <- object@raw.data[[i]]
+    if (is.null(assay)) {
+        for (i in 1:length(object@raw.data)) {
+            object@norm.data[[i]] <- object@raw.data[[i]]
+        }
+
+    } else {
+
+        for (i in 1:length(assay)) {
+            iniData <- object@raw.data[[assay[[i]]]]
+            print(dim(iniData))
+
+            if (class(iniData) == "data.frame") {
+                iniData <- as.matrix(iniData)
+            }
+            # filter cells that have features less than #minFeatures
+            msum <- Matrix::colSums(iniData != 0)
+            proData <- iniData[, msum >= minFeatures]
+            # filter cells that have UMI counts less than #minCounts
+            if (!is.null(minCounts)) {
+                proData <- proData[, Matrix::colSums(proData) >= minCounts]
+            }
+
+            # filter cells that have expressed genes high than #maxGenes
+            if (!is.null(maxCounts)) {
+                proData <- proData[, Matrix::colSums(proData) <= maxCounts]
+            }
+
+            # filter genes that only express less than #minCells cells
+            proData <- proData[Matrix::rowSums(proData != 0) >= minCells, ]
+            # normalization:we employ a global-scaling normalization method that normalizes the gene expression measurements for each cell by the total expression multiplies this by a scale factor (10,000 by default)
+            if (libararyflag) {
+                proData <- sweep(proData, 2, Matrix::colSums(proData), FUN = `/`) * 10000
+            }
+            if (logNormalize) {
+                proData = log(proData + 1)
+            }
+            object@norm.data[[assay[[i]]]] <- proData
+
+        }
     }
-
-  } else {
-
-    for (i in 1:length(assay)) {
-      iniData <- object@raw.data[[assay[[i]]]]
-      print(dim(iniData))
-
-      if (class(iniData) == "data.frame") {
-        iniData <- as.matrix(iniData)
-      }
-      # filter cells that have features less than #minFeatures
-      msum <- colSums(iniData != 0)
-      proData <- iniData[, msum > minFeatures]
-      # filter cells that have UMI counts less than #minCounts
-      if (!is.null(minCounts)) {
-        proData <- proData[, colSums(proData) > minCounts]
-      }
-
-      # filter cells that have expressed genes high than #maxGenes
-      if (!is.null(maxCounts)) {
-        proData <- proData[, colSums(proData) < maxCounts]
-      }
-
-      # filter genes that only express less than #minCells cells
-      proData <- proData[rowSums(proData != 0) > minCells, ]
-      # normalization:we employ a global-scaling normalization method that normalizes the gene expression measurements for each cell by the total expression multiplies this by a scale factor (10,000 by default)
-      if (libararyflag) {
-        proData <- sweep(proData, 2, colSums(proData), FUN = `/`) * 10000
-      }
-      if (logNormalize) {
-        proData = log(proData + 1)
-      }
-      object@norm.data[[assay[[i]]]] <- proData
-
+    if (length(assay) == 2) {
+        X1 <- object@norm.data[[assay[[1]]]]
+        X2 <- object@norm.data[[assay[[2]]]]
+        cell.keep <- intersect(colnames(X1), colnames(X2))
+        object@norm.data[[assay[[1]]]] <- X1[, cell.keep]
+        object@norm.data[[assay[[2]]]] <- X2[, cell.keep]
+    } else if (length(assay) == 1) {
+        X1 <- object@norm.data[[assay[[1]]]]
+        assay2 <- setdiff(names(object@raw.data), assay[[1]])
+        X2 <- object@raw.data[[assay2]]
+        cell.keep <- intersect(colnames(X1), colnames(X2))
+        object@norm.data[[assay[[1]]]] <- X1[, cell.keep]
+        object@norm.data[[assay2]] <- X2[, cell.keep]
     }
-  }
-  if (!is.null(assay)) {
-    X1 <- object@norm.data[[assay[[1]]]]
-    X2 <- object@norm.data[[assay[[2]]]]
-    cell.keep <- intersect(colnames(X1), colnames(X2))
-    object@norm.data[[assay[[1]]]] <- X1[, cell.keep]
-    object@norm.data[[assay[[2]]]] <- X2[, cell.keep]
-  }
   names(object@norm.data) <- names(object@raw.data)
-  return(object)
+
+    return(object)
 }
 
 
@@ -178,6 +186,8 @@ addpData <- function(object, pdata, pdata.name = NULL) {
 #' @param object scAI object
 #' @param K Rank of the inferred factor
 #' @param nrun Number of times to repreat the running
+#' @param hvg.use1 whether use high variable genes for RNA-seq data
+#' @param hvg.use2 whether use high variable genes for ATAC-seq data
 #' @param keep_all Whether keep all the results from multiple runs
 #' @param s Probability of Bernoulli distribution
 #' @param alpha model parameter
@@ -195,77 +205,86 @@ addpData <- function(object, pdata, pdata.name = NULL) {
 #' @importFrom foreach foreach "%dopar%"
 #' @importFrom parallel makeForkCluster makeCluster detectCores
 #' @importFrom doParallel registerDoParallel
-run_scAI <- function(object, K, nrun = 5, keep_all = F, s = 0.25, alpha = 1, lambda = 100000, gamma = 1, maxIter = 500, stop_rule = 1, init = NULL, rand.seed = 1) {
-  if (!is.null(init)) {
-    W1.init = init$W1.init
-    W2.init = init$W2.init
-    H.init = init$H.init
-    Z.init = init$Z.init
-    R.init = init$R.init
-  } else {
-    R.init = NULL
-    W1.init = NULL
-    W2.init = NULL
-    H.init = NULL
-    Z.init = NULL
-  }
-  options(warn = -1)
-  # Calculate the number of cores
-  numCores <- min(parallel::detectCores(), nrun)
-  cl <- tryCatch({
-    parallel::makeForkCluster(numCores)
-  }, error = function(e) {
-    parallel::makeCluster(numCores)
-  })
-  doParallel::registerDoParallel(cl)
+run_scAI <- function(object, K, nrun = 5, hvg.use1 = FALSE, hvg.use2 = FALSE, keep_all = F, s = 0.25, alpha = 1, lambda = 100000, gamma = 1, maxIter = 500, stop_rule = 1, init = NULL, rand.seed = 1) {
+    if (!is.null(init)) {
+        W1.init = init$W1.init
+        W2.init = init$W2.init
+        H.init = init$H.init
+        Z.init = init$Z.init
+        R.init = init$R.init
+    } else {
+        R.init = NULL
+        W1.init = NULL
+        W2.init = NULL
+        H.init = NULL
+        Z.init = NULL
+    }
+    options(warn = -1)
+    # Calculate the number of cores
+    numCores <- min(parallel::detectCores(), nrun)
+    cl <- tryCatch({
+        parallel::makeForkCluster(numCores)
+    }, error = function(e) {
+        parallel::makeCluster(numCores)
+    })
+    doParallel::registerDoParallel(cl)
+    if (hvg.use1) {
+        X1 <- as.matrix(object@norm.data[[1]][object@var.features[[1]], ])
+    } else {
+        X1 <- as.matrix(object@norm.data[[1]])
+    }
+    if (hvg.use2) {
+        X2 <- as.matrix(object@norm.data[[2]][object@var.features[[2]], ])
+    } else {
+        X2 <- as.matrix(object@norm.data[[2]])
+    }
 
-  X1 <- as.matrix(object@norm.data[[1]])
-  X2 <- as.matrix(object@norm.data[[2]])
-  outs <- foreach(i = 1:nrun, .packages = c("Matrix")) %dopar% {
-    set.seed(rand.seed + i - 1)
-    scAImodel(X1, X2, K = K, s = s, alpha = alpha, lambda = lambda, gamma = gamma, maxIter = maxIter, stop_rule = stop_rule,
-         R.init = R.init, W1.init = W1.init, W2.init = W2.init, H.init = H.init, Z.init = Z.init)
-  }
 
-  objs <- foreach(i = 1:nrun, .combine = c) %dopar% {
-    W1 <- outs[[i]]$W1
-    W2 <- outs[[i]]$W2
-    sum(cor(as.matrix(W1))) + sum(cor(as.matrix(W2)))
-  }
-  parallel::stopCluster(cl)
-  N <- ncol(X1)
-  C <- matrix(0, N, N)
-  for (i in seq_len(nrun)) {
-    H <- outs[[i]]$H
-    H <- sweep(H, 2, colSums(H), FUN = `/`)
-    clusIndex <- apply(H, 2, which.max)
-    # compute the consensus matrix
-    adjMat <- clust2Mat(clusIndex)
-    C <- C + adjMat
-  }
-  CM <- C/nrun
+    outs <- foreach(i = 1:nrun, .packages = c("Matrix")) %dopar% {
+        set.seed(rand.seed + i - 1)
+        scAImodel(X1, X2, K = K, s = s, alpha = alpha, lambda = lambda, gamma = gamma, maxIter = maxIter, stop_rule = stop_rule,
+        R.init = R.init, W1.init = W1.init, W2.init = W2.init, H.init = H.init, Z.init = Z.init)
+    }
 
-  if (!keep_all) {
-    sprintf("The best seed is %d", which.min(objs))
-    outs_final <- outs[[which.min(objs)]]
-    object@agg.data <- outs_final$agg.data
-    W = list(W1 = outs_final$W1, W2 = outs_final$W2)
-    names(W) <- names(object@norm.data)
-    object@fit <- list(W = W, H = outs_final$H, Z = outs_final$Z, R = outs_final$R)
-    object@cluster$consensus <- CM
-    object@options$cost <- objs
-    object@options$paras <- outs_final$options
-    object@options$paras$nrun <- nrun
-    object@options$best.seed <- which.min(objs)
-    return(object)
-  } else {
-    outs_final <- list()
-    outs_final$best <- outs[[which.min(objs)]]
-    outs_final$best$consensus <- CM
-    outs_final$nruns <- outs
-    outs_final$options$cost <- objs
-    return(outs_final)
-  }
+    objs <- foreach(i = 1:nrun, .combine = c) %dopar% {
+        W1 <- outs[[i]]$W1
+        W2 <- outs[[i]]$W2
+        sum(cor(as.matrix(W1))) + sum(cor(as.matrix(W2)))
+    }
+    parallel::stopCluster(cl)
+    N <- ncol(X1)
+    C <- matrix(0, N, N)
+    for (i in seq_len(nrun)) {
+        H <- outs[[i]]$H
+        H <- sweep(H, 2, colSums(H), FUN = `/`)
+        clusIndex <- apply(H, 2, which.max)
+        # compute the consensus matrix
+        adjMat <- clust2Mat(clusIndex)
+        C <- C + adjMat
+    }
+    CM <- C/nrun
+
+    if (!keep_all) {
+        sprintf("The best seed is %d", which.min(objs))
+        outs_final <- outs[[which.min(objs)]]
+        object@agg.data <- outs_final$agg.data
+        W = list(W1 = outs_final$W1, W2 = outs_final$W2)
+        names(W) <- names(object@norm.data)
+        object@fit <- list(W = W, H = outs_final$H, Z = outs_final$Z, R = outs_final$R)
+        object@cluster$consensus <- CM
+        object@options$cost <- objs
+        object@options$paras <- outs_final$options
+        object@options$paras$nrun <- nrun
+        object@options$best.seed <- which.min(objs)
+        return(object)
+    } else {
+        outs_final <- list()
+        outs_final$best <- outs[[which.min(objs)]]
+        outs_final$best$consensus <- CM
+        outs_final$nruns <- outs
+        outs_final$options$cost <- objs
+        return(outs_final)
+    }
 }
 
 
@@ -378,7 +397,7 @@ scAImodel <- function(X1, X2, K, s = 0.25, alpha = 1, lambda = 100000, gamma = 1
 
   ZR <- Z
   ZR[index] <- 0
-
+  ZR <- sweep(ZR, 2, colSums(ZR), FUN = `/`)
   X2agg <- eigenMapMatMult(X2, ZR)
   X2agg <- sweep(X2agg, 2, colSums(X2agg), FUN = `/`) * 10000
   X2agg <- log(1 + X2agg)
@@ -444,6 +463,7 @@ scAImodel <- function(X1, X2, K, s = 0.25, alpha = 1, lambda = 100000, gamma = 1
 #' optimization process. Increasing this value will result in greater repulsive force being applied, greater optimization cost, but slightly more accuracy.
 #' @param a More specific parameters controlling the embedding. If NULL, these values are set automatically as determined by min. dist and spread.
 #' @param b More specific parameters controlling the embedding. If NULL, these values are set automatically as determined by min. dist and spread.
+
 #'
 #' @return
 #' @export
@@ -452,75 +472,72 @@ scAImodel <- function(X1, X2, K, s = 0.25, alpha = 1, lambda = 100000, gamma = 1
 #' @importFrom Rtsne Rtsne
 #' @importFrom reticulate py_module_available py_set_seed import
 #'
+reducedDims <- function(object, data.use = object@fit$H, do.scale = TRUE, do.center = TRUE, return.object = TRUE, method = "umap",
+dim.embed = 2, dim.use = NULL, perplexity = 30, theta = 0.5, check_duplicates = F, rand.seed = 42L,
+FItsne.path = NULL,
+dimPC = 40,do.fast = TRUE, weight.by.var = TRUE,
+n.neighbors = 30L, n.components = 2L, distance = "correlation",n.epochs = NULL,learning.rate = 1.0,min.dist = 0.3,spread = 1.0,set.op.mix.ratio = 1.0,local.connectivity = 1L,
+repulsion.strength = 1,negative.sample.rate = 5,a = NULL,b = NULL) {
 
-reducedDims <- function(object, data.use = object@fit$H, do.scale = TRUE, do.center = TRUE, return.object = TRUE, method = "tsne",
-                        dim.embed = 2, dim.use = NULL, perplexity = 30, theta = 0.5, check_duplicates = F, rand.seed = 42L,
-                        FItsne.path = NULL,
-                        dimPC = 40,do.fast = TRUE, weight.by.var = TRUE,
-                        n.neighbors = 30L, n.components = 2L, distance = "correlation",n.epochs = NULL,learning.rate = 1.0,min.dist = 0.3,spread = 1.0,set.op.mix.ratio = 1.0,local.connectivity = 1L,
-                        repulsion.strength = 1,negative.sample.rate = 5,a = NULL,b = NULL
-                        ) {
-
-  data.use <- as.matrix(data.use)
-  if (do.scale) {
-    data.use <- t(scale(t(data.use), center = do.center, scale = TRUE))
-    data.use[is.na(data.use)] <- 0
-  }
-  if (!is.null(dim.use)) {
-    data.use = object@embed$pca[, dim.use]
-  }
-  if (method == "pca") {
-    cell_coords <- runPCA(data.use, do.fast = do.fast, dimPC = dimPC, seed.use = rand.seed, weight.by.var = weight.by.var)
-    object@embed$pca <- cell_coords
-
-  } else if (method == "tsne") {
-    set.seed(rand.seed)
-    cell_coords <- Rtsne::Rtsne(t(data.use), pca = FALSE, dims = dim.embed, theta = theta, perplexity = perplexity, check_duplicates = F)$Y
-    rownames(cell_coords) <- rownames(t(data.use))
-    object@embed$tsne <- cell_coords
-
-  } else if (method == "FItsne") {
-    if (!exists("FItsne")) {
-      if (is.null(fitsne.path)) {
-        stop("Please pass in path to FIt-SNE directory as FItsne.path.")
-      }
-      source(paste0(fitsne.path, "/fast_tsne.R"), chdir = T)
+    data.use <- as.matrix(data.use)
+    if (do.scale) {
+        data.use <- t(scale(t(data.use), center = do.center, scale = TRUE))
+        data.use[is.na(data.use)] <- 0
     }
-    cell_coords <- fftRtsne(t(data.use), pca = FALSE, dims = dim.embed, theta = theta, perplexity = perplexity, check_duplicates = F, rand_seed = rand.seed)
-    rownames(cell_coords) <- rownames(t(data.use))
-    object@embed$FItsne <- cell_coords
+    if (!is.null(dim.use)) {
+        data.use = object@embed$pca[, dim.use]
+    }
+    if (method == "pca") {
+        cell_coords <- runPCA(data.use, do.fast = do.fast, dimPC = dimPC, seed.use = rand.seed, weight.by.var = weight.by.var)
+        object@embed$pca <- cell_coords
 
-  } else if (method == "umap") {
-    cell_coords <- runUMAP(data.use,
-                           n.neighbors = n.neighbors,
-                           n.components = n.components,
-                           distance = distance,
-                           n.epochs = n.epochs,
-                           learning.rate = learning.rate,
-                           min.dist = min.dist,
-                           spread = spread,
-                           set.op.mix.ratio = set.op.mix.ratio,
-                           local.connectivity = local.connectivity,
-                           repulsion.strength = repulsion.strength,
-                           negative.sample.rate = negative.sample.rate,
-                           a = a,
-                           b = b,
-                           seed.use = rand.seed,
-                           metric.kwds = metric.kwds,
-                           angular.rp.forest = angular.rp.forest,
-                           verbose = verbose)
-    object@embed$umap <- cell_coords
+    } else if (method == "tsne") {
+        set.seed(rand.seed)
+        cell_coords <- Rtsne::Rtsne(t(data.use), pca = FALSE, dims = dim.embed, theta = theta, perplexity = perplexity, check_duplicates = F)$Y
+        rownames(cell_coords) <- rownames(t(data.use))
+        object@embed$tsne <- cell_coords
 
-  } else {
-    stop("Error: unrecognized dimensionality reduction method.")
-  }
-  if (return.object) {
-    return(object)
-  } else {
-    return(cell_coords)
-  }
+    } else if (method == "FItsne") {
+        if (!exists("FItsne")) {
+            if (is.null(fitsne.path)) {
+                stop("Please pass in path to FIt-SNE directory as FItsne.path.")
+            }
+            source(paste0(fitsne.path, "/fast_tsne.R"), chdir = T)
+        }
+        cell_coords <- fftRtsne(t(data.use), pca = FALSE, dims = dim.embed, theta = theta, perplexity = perplexity, check_duplicates = F, rand_seed = rand.seed)
+        rownames(cell_coords) <- rownames(t(data.use))
+        object@embed$FItsne <- cell_coords
+
+    } else if (method == "umap") {
+        cell_coords <- runUMAP(data.use,
+        n.neighbors = n.neighbors,
+        n.components = n.components,
+        distance = distance,
+        n.epochs = n.epochs,
+        learning.rate = learning.rate,
+        min.dist = min.dist,
+        spread = spread,
+        set.op.mix.ratio = set.op.mix.ratio,
+        local.connectivity = local.connectivity,
+        repulsion.strength = repulsion.strength,
+        negative.sample.rate = negative.sample.rate,
+        a = a,
+        b = b,
+        seed.use = rand.seed
+        )
+        object@embed$umap <- cell_coords
+
+    } else {
+        stop("Error: unrecognized dimensionality reduction method.")
+    }
+    if (return.object) {
+        return(object)
+    } else {
+        return(cell_coords)
+    }
 
 }
+
 
 #' Dimension reduction using PCA
 #'
@@ -662,91 +679,119 @@ runUMAP <- function(
 #' @param thresh.fc Threshold of Fold Change
 #' @param thresh.p Threshold of p-values
 #' @param n.top Number of top features to be returned
+#' @importFrom stats sd wilcox.test
+#' @importFrom dplyr top_n slice
+#' @importFrom future nbrOfWorkers
+#' @importFrom future.apply future_sapply
+#' @importFrom pbapply pbsapply
+#' @importFrom stats p.adjust
 #'
 #' @return
 #' @export
 #'
 #' @examples
-#' @importFrom stats sd wilcox.test
-#' @importFrom dplyr top_n slice
-identifyFactorMarkers <- function(object, assay, features = NULL,
-                                     cutoff.W = 0.5, cutoff.H = 0.5,
-                                     thresh.pc = 0.05, thresh.fc = 0.25, thresh.p = 0.05, n.top = 10) {
-  X <- as.matrix(object@norm.data[[assay]])
-  H <- object@fit$H
-  W <- object@fit$W[[assay]]
-  if (is.null(features)) {
-    features <- row.names(W)
-  }
 
-  H <- sweep(H, 2, colSums(H), FUN = `/`)
-  K = ncol(W)
-  lib_W <- base::rowSums(W)
-  lib_W[lib_W == 0] <- 1
-  lib_W[lib_W < mean(lib_W) - 5 * sd(lib_W)] <- 1  #  omit the nearly null rows
-  W <- sweep(W, 1, lib_W, FUN = `/`)
-  MW <- base::colMeans(W)
-  sW <- apply(W, 2, sd)
-  # candidate markers for each factor
-  IndexW_record <- vector("list", K)
-  for (j in 1:K) {
-    IndexW_record[[j]] <- which(W[, j] > MW[j] + cutoff.W * sW[j])
-  }
-
-  # divided cells into two groups
-  mH <- apply(H, 1, mean)
-  sH <- apply(H, 1, sd)
-  IndexH_record1 <- vector("list", K)
-  IndexH_record2 <- vector("list", K)
-  for (i in 1:K) {
-    IndexH_record1[[i]] <- which(H[i, ] > mH[i] + cutoff.H * sH[i])
-    IndexH_record2[[i]] <- base::setdiff(c(1:ncol(H)), IndexH_record1[[i]])
-  }
-
-  # identify factor-specific markers
-  factor_markers = vector("list", K)
-  markersTopn = vector("list", K)
-  factors <- c()
-  Features <- c()
-  Pvalues <- c()
-  Log2FC <- c()
-  for (i in 1:K) {
-    data1 <- X[IndexW_record[[i]], IndexH_record1[[i]]]
-    data2 <- X[IndexW_record[[i]], IndexH_record2[[i]]]
-    idx1 <- which(base::rowSums(data1 != 0) > thresh.pc * ncol(data1))  # at least expressed in thresh.pc% cells in one group
-    FC <- log2(base::rowMeans(data1)/base::rowMeans(data2))
-    idx2 <- which(FC > thresh.fc)
-    pvalues <- matrix(0, nrow(data1), 1)
-    for (j in 1:nrow(data1)) {
-      pvalues[j] <- wilcox.test(data1[j, ], data2[j, ], alternative = "greater", correct = T)$p.value
+identifyFactorMarkers <- function(object, assay, features = NULL, cutoff.W = 0.5, cutoff.H = 0.5,
+                                  thresh.pc = 0.05, thresh.fc = 0.25, thresh.p = 0.05, n.top = 10) {
+    if (assay == "RNA") {
+        X <- as.matrix(object@norm.data[[assay]])
+    } else {
+        X <- as.matrix(object@agg.data)
+    }
+    H <- object@fit$H
+    W <- object@fit$W[[assay]]
+    if (is.null(features)) {
+        features <- row.names(W)
     }
 
-    idx3 <- which(pvalues < thresh.p)
-    idx = intersect(intersect(idx1, idx2), idx3)
+    H <- sweep(H, 2, colSums(H), FUN = `/`)
+    K = ncol(W)
+    lib_W <- base::rowSums(W)
+    lib_W[lib_W == 0] <- 1
+    lib_W[lib_W < mean(lib_W) - 5 * sd(lib_W)] <- 1  #  omit the nearly null rows
+    W <- sweep(W, 1, lib_W, FUN = `/`)
+    MW <- base::colMeans(W)
+    sW <- apply(W, 2, sd)
+    # candidate markers for each factor
+    IndexW_record <- vector("list", K)
+    for (j in 1:K) {
+        IndexW_record[[j]] <- which(W[, j] > MW[j] + cutoff.W * sW[j])
+    }
 
-    # order
-    FC <- FC[idx]
-    c = sort(FC, decreasing = T, index.return = T)$ix
-    ri = IndexW_record[[i]]
+    my.sapply <- ifelse(
+    test = future::nbrOfWorkers() == 1,
+    yes = pbapply::pbsapply,
+    no = future.apply::future_sapply
+    )
 
-    Pvalues <- c(Pvalues, pvalues[ri[idx[c]]])
-    Log2FC <- c(Log2FC, FC[c])
-    factors <- c(factors, rep(i, length(c)))
-    Features <- c(Features, features[ri[idx[c]]])
+    # divided cells into two groups
+    mH <- apply(H, 1, mean)
+    sH <- apply(H, 1, sd)
+    IndexH_record1 <- vector("list", K)
+    IndexH_record2 <- vector("list", K)
+    for (i in 1:K) {
+        IndexH_record1[[i]] <- which(H[i, ] > mH[i] + cutoff.H * sH[i])
+        IndexH_record2[[i]] <- base::setdiff(c(1:ncol(H)), IndexH_record1[[i]])
+    }
 
-  }
+    # identify factor-specific markers
+    factor_markers = vector("list", K)
+    markersTopn = vector("list", K)
+    factors <- c()
+    Features <- c()
+    Pvalues <- c()
+    Log2FC <- c()
+    for (i in 1:K) {
+        data1 <- X[IndexW_record[[i]], IndexH_record1[[i]]]
+        data2 <- X[IndexW_record[[i]], IndexH_record2[[i]]]
+        idx1 <- which(base::rowSums(data1 != 0) > thresh.pc * ncol(data1))  # at least expressed in thresh.pc% cells in one group
+        FC <- log2(base::rowMeans(data1)/base::rowMeans(data2))
+        idx2 <- which(FC > thresh.fc)
+        # pvalues <- matrix(0, nrow(data1), 1)
+        # for (j in 1:nrow(data1)) {
+        #   pvalues[j] <- wilcox.test(data1[j, ], data2[j, ], alternative = "greater", correct = T)$p.value
+        # }
+        #
+        pvalues <- my.sapply(
+        X = 1:nrow(x = data1),
+        FUN = function(x) {
+            return(wilcox.test(data1[x, ], data2[x, ], alternative = "greater")$p.value)
+        }
+        )
+        # pvalues <- foreach(x = 1:nrow(data1),.combine = c) %dopar% {
+        #   return(wilcox.test(data1[x, ], data2[x, ], alternative = "greater")$p.value)
+        #   }
+        # pvalues = stats::p.adjust(
+        # p = pvalues,
+        # method = "bonferroni",
+        # n = nrow(X)
+        # )
 
-  markers.all <- cbind(factors = factors, features = Features, pvalues = Pvalues, log2FC = Log2FC)
+        idx3 <- which(pvalues < thresh.p)
+        idx = intersect(intersect(idx1, idx2), idx3)
 
-  rownames(markers.all) <- Features
-  markers.all <- as.data.frame(markers.all)
-  markers.top <- markers.all %>% dplyr::group_by(factors) %>% top_n(n.top, log2FC) %>% dplyr::slice(1:n.top)
+        # order
+        FC <- FC[idx]
+        c = sort(FC, decreasing = T, index.return = T)$ix
+        ri = IndexW_record[[i]]
 
-  markers = list(markers.all = markers.all, markers.top = markers.top)
+        Pvalues <- c(Pvalues, pvalues[ri[idx[c]]])
+        Log2FC <- c(Log2FC, FC[c])
+        factors <- c(factors, rep(i, length(c)))
+        Features <- c(Features, features[ri[idx[c]]])
 
-  return(markers)
+    }
+    # stopCluster(cl)
+    markers.all <- cbind(factors = factors, features = Features, pvalues = Pvalues, log2FC = Log2FC)
+
+    rownames(markers.all) <- Features
+    markers.all <- as.data.frame(markers.all)
+    markers.top <- markers.all %>% dplyr::group_by(factors) %>% top_n(n.top, log2FC) %>% dplyr::slice(1:n.top)
+
+    markers = list(markers.all = markers.all, markers.top = markers.top)
+
+    return(markers)
 }
-
 
 
 
@@ -900,28 +945,6 @@ identifyClusters <- function(object, resolution = 1, partition.type = "RBConfigu
 #' @param resolution A parameter controlling the coarseness of the clusters
 #' @param weights defaults weights=None
 #' @return A parition of clusters as a vector of integers
-##' @examples
-##' #check if python is availble
-##' modules <- reticulate::py_module_available("leidenalg") && reticulate::py_module_available("igraph")
-##' if(modules){
-##' #generate partitions
-##' partition <- leiden(adjacency_matrix)
-##' table(partition)
-##'
-##' #generate partitions at a lower resolution
-##' partition <- leiden(adjacency_matrix, resolution_parameter = 0.5)
-##' table(partition)
-##'
-##' #generate example weights
-##' weights <- sample(1:10, sum(adjacency_matrix!=0), replace=TRUE)
-##' partition <- leiden(adjacency_matrix, weights = weights)
-##' table(partition)
-##'
-##' #generate example weighted matrix
-##' adjacency_matrix[adjacency_matrix == 1] <- weights
-##' partition <- leiden(adjacency_matrix)
-##' table(partition)
-##' }
 ##'
 ##'
 #' @keywords graph network igraph mvtnorm simulation
@@ -1107,124 +1130,131 @@ clust2Mat <- function(memb) {
 }
 
 
-#' Identify enriched features in each cell cluster
+#' Identify markers in each cell cluster
 #'
 #' @param object scAI object
 #' @param assay Name of assay to be analyzed
 #' @param features a vector of features
+#' @param use.agg whether use the aggregated data
 #' @param test.use which test to use ("bimod" or "wilcox")
 #' @param thresh.pc Threshold of the percent of cells enriched in one cluster
 #' @param thresh.fc Threshold of Fold Change
 #' @param thresh.p Threshold of p-values
-#' @param n.top Number of top features to be returned
 #' @importFrom future nbrOfWorkers
 #' @importFrom pbapply pbsapply
 #' @importFrom future.apply future_sapply
+#' @importFrom stats sd wilcox.test
+#' @importFrom dplyr top_n slice
+#' @importFrom stats p.adjust
+#'
 #' @return
 #' @export
 #'
 #' @examples
-identifyClusterMarkers <- function(object, assay, features = NULL, test.use = "bimod",
-                                   thresh.pc = 0.05, thresh.fc = 0.25, thresh.p = 0.05, n.top = 10) {
-  X <- as.matrix(object@norm.data[[assay]])
-  H <- object@fit$H
-  W <- object@fit$W[[assay]]
-  identity <- object@identity
+identifyClusterMarkers <- function(object, assay, features = NULL, use.agg = TRUE, test.use = "bimod",
+thresh.pc = 0.05, thresh.fc = 0.25, thresh.p = 0.05) {
+    if (assay == "RNA") {
+        X <- object@norm.data[[assay]]
+    } else {
+        if (use.agg) {
+            X <- object@agg.data
+        } else {
+            X <- object@norm.data[[assay]]
+        }
+    }
+    if (is.null(features)) {
+        features <- row.names(X)
+    } else {
+        features <- intersect(features, row.names(X))
+    }
+    data.use <- X[features,]
+    data.use <- as.matrix(data.use)
 
-  if (is.null(features)) {
-    features <- row.names(W)
-  }
+    groups <- object@identity
+    labels <- groups
+    level.use <- levels(labels)
+    numCluster <- length(level.use)
 
-  lib_W <- rowSums(W)
-  lib_W[lib_W == 0] <- 1
-  lib_W[lib_W < mean(lib_W) - 5 * sd(lib_W)] <- 1  #  omit the nearly null rows
-  W <- sweep(W, 1, lib_W, FUN = `/`)
-  MW <- colMeans(W)
-  sW <- apply(W, 2, sd)
-  # candidate markers for each factor
-  IndexW_record <- vector("list", ncol(W))
-  for (j in 1:ncol(W)) {
-    IndexW_record[[j]] <- which(W[, j] > MW[j])
-  }
-  IndexW_record <- unique(c(IndexW_record, recursive = TRUE))
-
-  # divided cells into two groups
-  K <- length(unique(identity))
-
-  IndexH_record1 <- vector("list", K)
-  IndexH_record2 <- vector("list", K)
-  for (i in 1:K) {
-    IndexH_record1[[i]] <- which(identity == i)
-    IndexH_record2[[i]] <- base::setdiff(c(1:length(identity)), IndexH_record1[[i]])
-  }
-
-  my.sapply <- ifelse(
+    my.sapply <- ifelse(
     test = future::nbrOfWorkers() == 1,
     yes = pbapply::pbsapply,
     no = future.apply::future_sapply
-  )
+    )
 
-  # identify factor-specific markers
-  factor_markers = vector("list", K)
-  markersTopn = vector("list", K)
-  factors <- c()
-  Features <- c()
-  Pvalues <- c()
-  Log2FC <- c()
-  for (i in 1:K) {
-    data1 <- X[IndexW_record, IndexH_record1[[i]]]
-    data2 <- X[IndexW_record, IndexH_record2[[i]]]
-    idx1 <- which(rowSums(data1 != 0) > thresh.pc * ncol(data1))  # at least expressed in thresh.pc cells in one group
-    FC <- log2(rowMeans(data1)/rowMeans(data2))
-    idx2 <- which(FC > thresh.fc)
-    if (test.use == "wilcox") {
-      pvalues <- unlist(
-        x = my.sapply(
-          X = 1:nrow(x = data1),
-          FUN = function(x) {
-            return(wilcox.test(data1[x, ], data2[x, ], alternative = "greater", correct = T)$p.value)
-          }
-        )
-      )
 
-    } else if (test.use == 'bimod') {
-      pvalues <- unlist(
-        x = my.sapply(
-          X = 1:nrow(x = data1),
-          FUN = function(x) {
-            return(DifferentialLRT(
-              x = as.numeric(x = data1[x,]),
-              y = as.numeric(x = data2[x,])
-            ))
-          }
+    mean.fxn <- function(x) {
+        return(log(x = mean(x = expm1(x = x)) + 1))
+        # return(log(x = mean(x = x) + pseudocount.use))
+    }
+    genes.de <- vector("list", length = numCluster)
+    for (i in 1:numCluster) {
+        cell.use1 <- which(labels %in% level.use[i])
+        cell.use2 <- base::setdiff(1:length(labels), cell.use1)
+        data1 <- data.use[, cell.use1]
+        data2 <- data.use[, cell.use2]
+        idx1 <- rowSums(data1 != 0) > thresh.pc * ncol(data1) # at least expressed in thresh.pc cells in one group
+
+        data.1 <- apply(
+        X = data1,
+        MARGIN = 1,
+        FUN = mean.fxn
         )
-      )
+        data.2 <- apply(
+        X = data2,
+        MARGIN = 1,
+        FUN = mean.fxn
+        )
+        FC <- (data.1 - data.2)
+        idx2 <- FC > thresh.fc
+
+        FC <- FC[idx1 & idx2]
+        data1 <- data1[idx1 & idx2, ]
+        data2 <- data2[idx1 & idx2, ]
+
+        if (test.use == "wilcox") {
+            pvalues <- unlist(
+            x = my.sapply(
+            X = 1:nrow(x = data1),
+            FUN = function(x) {
+                return(wilcox.test(data1[x, ], data2[x, ], alternative = "greater")$p.value)
+            }
+            )
+            )
+
+        } else if (test.use == 'bimod') {
+            pvalues <- unlist(
+            x = my.sapply(
+            X = 1:nrow(x = data1),
+            FUN = function(x) {
+                return(DifferentialLRT(
+                x = as.numeric(x = data1[x,]),
+                y = as.numeric(x = data2[x,])
+                ))
+            }
+            )
+            )
+        }
+
+        pval.adj = stats::p.adjust(
+        p = pvalues,
+        method = "bonferroni",
+        n = nrow(X)
+        )
+        genes.de[[i]] <- data.frame(clusters = level.use[i], features = as.character(rownames(data1)), pvalues = pvalues, pval_adj = pval.adj, logFC = FC)
+        #genes.de[[i]] <- de[pvalues < thresh.p, ]
     }
 
-    idx3 <- which(pvalues < thresh.p)
-    idx = intersect(intersect(idx1, idx2), idx3)
-
-    # order
-    FC <- FC[idx]
-    c = sort(FC, decreasing = T, index.return = T)$ix
-    ri = IndexW_record
-
-    Pvalues <- c(Pvalues, pvalues[ri[idx[c]]])
-    Log2FC <- c(Log2FC, FC[c])
-    factors <- c(factors, rep(i, length(c)))
-    Features <- c(Features, features[ri[idx[c]]])
-
-  }
-
-  markers.all <- data.frame(factors = factors, features = as.character(Features),
-                            pvalues = as.numeric(as.character(Pvalues)), log2FC = as.numeric(as.character(Log2FC)))
-
-  markers.top <- markers.all %>% group_by(factors) %>% top_n(n.top, log2FC) %>% slice(1:n.top)
-
-  markers = list(markers.all = markers.all, markers.top = markers.top)
-
-
-  return(markers)
+    markers.all <- data.frame()
+    for (i in 1:numCluster) {
+        gde <- genes.de[[i]]
+        gde <- gde[order(gde$pvalues, -gde$logFC), ]
+        gde <- subset(gde, subset = pvalues < thresh.p)
+        if (nrow(gde) > 0) {
+            markers.all <- rbind(markers.all, gde)
+        }
+    }
+    markers.all$features <- as.character(markers.all$features)
+    return(markers.all)
 }
 
 # function to run mcdavid et al. DE test
@@ -1234,7 +1264,6 @@ identifyClusterMarkers <- function(object, assay, features = NULL, test.use = "b
 #' @param y a vector
 #' @param xmin threshold for the values in the vector
 #'
-#' @return
 #'
 #' @importFrom stats pchisq
 DifferentialLRT <- function(x, y, xmin = 0) {
@@ -1354,56 +1383,93 @@ inferRegulations <- function(object, gene.use, candinate_loci, cutoff_H = 0.5, c
 #' @examples
 #' @importFrom graphics smoothScatter text
 selectFeatures <- function(object, assay = "RNA", do.plot = TRUE, do.text = TRUE,
-                           x.low.cutoff = 0.01, x.high.cutoff = 3.5, y.cutoff = 1, y.high.cutoff = Inf,
-                           num.bin = 20, pch.use = 16, col.use = "black", cex.text.use = 0.5) {
-  # This function is modified from Seurat Package
-  data <- object@norm.data[[assay]]
-  genes.use <- rownames(data)
+x.low.cutoff = 0.01, x.high.cutoff = 3.5, y.cutoff = 0.5, y.high.cutoff = Inf,
+num.bin = 20, pch.use = 16, col.use = "black", cex.text.use = 0.5) {
+    # This function is modified from Seurat Package
+    data <- object@norm.data[[assay]]
+    genes.use <- rownames(data)
 
-  gene.mean <- rep(x = 0, length(x = genes.use))
-  names(x = gene.mean) <- genes.use
-  gene.dispersion <- gene.mean
-  gene.dispersion.scaled <- gene.mean
-  bin.size <- 1000
-  max.bin <- floor(x = length(x = genes.use)/bin.size) + 1
+    gene.mean <- apply(X = data, MARGIN = 1, FUN = ExpMean)
+    gene.dispersion <- apply(X = data, MARGIN = 1, FUN = LogVMR)
+    gene.dispersion[is.na(x = gene.dispersion)] <- 0
+    gene.mean[is.na(x = gene.mean)] <- 0
+    names(x = gene.mean) <- genes.use
+    data_x_bin <- cut(x = gene.mean, breaks = num.bin)
+    names(x = data_x_bin) <- names(x = gene.mean)
+    mean_y <- tapply(X = gene.dispersion, INDEX = data_x_bin, FUN = mean)
+    sd_y <- tapply(X = gene.dispersion, INDEX = data_x_bin, FUN = sd)
+    gene.dispersion.scaled <- (gene.dispersion - mean_y[as.numeric(x = data_x_bin)])/sd_y[as.numeric(x = data_x_bin)]
+    gene.dispersion.scaled[is.na(x = gene.dispersion.scaled)] <- 0
+    names(x = gene.dispersion.scaled) <- names(x = gene.mean)
 
-  for (i in 1:max.bin) {
-    my.inds <- ((bin.size * (i - 1)):(bin.size * i - 1)) + 1
-    my.inds <- my.inds[my.inds <= length(x = genes.use)]
-    genes.iter <- genes.use[my.inds]
-    data.iter <- data[genes.iter, , drop = F]
-    gene.mean[genes.iter] <- apply(X = data.iter, MARGIN = 1, FUN = mean.function)
-    gene.dispersion[genes.iter] <- apply(X = data.iter, MARGIN = 1, FUN = dispersion.function)
-  }
-  gene.dispersion[is.na(x = gene.dispersion)] <- 0
-  gene.mean[is.na(x = gene.mean)] <- 0
-  data_x_bin <- cut(x = gene.mean, breaks = num.bin)
+    mv.df <- data.frame(gene.mean, gene.dispersion, gene.dispersion.scaled)
+    rownames(x = mv.df) <- rownames(x = data)
+    hvg.info <- mv.df
+    names(x = gene.mean) <- names(x = gene.dispersion) <- names(x = gene.dispersion.scaled) <- rownames(hvg.info)
+    pass.cutoff <- names(x = gene.mean)[which(x = ((gene.mean > x.low.cutoff) & (gene.mean < x.high.cutoff)) & (gene.dispersion.scaled > y.cutoff) & (gene.dispersion.scaled < y.high.cutoff))]
+    if (do.plot) {
+        smoothScatter(x = gene.mean, y = gene.dispersion.scaled, pch = pch.use, cex = 0.5, col = col.use, xlab = "Average expression", ylab = "Dispersion", nrpoints = Inf)
+    }
+    if (do.text) {
+        text(x = gene.mean[pass.cutoff], y = gene.dispersion.scaled[pass.cutoff], labels = pass.cutoff, cex = cex.text.use)
+    }
+    hvg.info <- hvg.info[order(hvg.info$gene.dispersion, decreasing = TRUE), ]
 
-  names(x = data_x_bin) <- names(x = gene.mean)
-  mean_y <- tapply(X = gene.dispersion, INDEX = data_x_bin, FUN = mean)
-  sd_y <- tapply(X = gene.dispersion, INDEX = data_x_bin, FUN = sd)
-  gene.dispersion.scaled <- (gene.dispersion - mean_y[as.numeric(x = data_x_bin)])/sd_y[as.numeric(x = data_x_bin)]
-  gene.dispersion.scaled[is.na(x = gene.dispersion.scaled)] <- 0
-  names(x = gene.dispersion.scaled) <- names(x = gene.mean)
-  mv.df <- data.frame(gene.mean, gene.dispersion, gene.dispersion.scaled)
-  rownames(x = mv.df) <- rownames(x = data)
-  hvg.info <- mv.df
+    if (length(object@var.features) == 0) {
+        for (i in 1:length(object@raw.data)) {
+            object@var.features[[i]] <- vector("character")
+        }
+        names(object@var.features) <- names(object@raw.data)
+    }
 
-
-  names(x = gene.mean) <- names(x = gene.dispersion) <- names(x = gene.dispersion.scaled) <- rownames(hvg.info)
-  pass.cutoff <- names(x = gene.mean)[which(x = ((gene.mean > x.low.cutoff) & (gene.mean < x.high.cutoff)) & (gene.dispersion.scaled > y.cutoff) & (gene.dispersion.scaled < y.high.cutoff))]
-  if (do.plot) {
-    smoothScatter(x = gene.mean, y = gene.dispersion.scaled, pch = pch.use, cex = 0.5, col = col.use, xlab = "Average expression", ylab = "Dispersion", nrpoints = Inf)
-  }
-  if (do.text) {
-    text(x = gene.mean[pass.cutoff], y = gene.dispersion.scaled[pass.cutoff], labels = pass.cutoff, cex = cex.text.use)
-  }
-  hvg.info <- hvg.info[order(hvg.info$gene.dispersion, decreasing = TRUE), ]
-  object$var.features <- list(assay = pass.cutoff)
-  return(object)
+    object@var.features[[assay]] <- pass.cutoff
+    return(object)
 
 }
 
+#' find chromsome regions of genes
+#'
+#' @param genes a given set of genes
+#' @param species mouse or human
+#' @importFrom biomaRt useMart getBM
+#' @export
+#'
+searchGeneRegions <- function(genes, species = "mouse") {
+    if (species == "mouse"){
+        mouse = biomaRt::useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+        loci <- biomaRt::getBM(attributes = c( "mgi_symbol","chromosome_name",'start_position','end_position'), filters = "mgi_symbol", values = genes, mart = mouse)
+    } else{
+        human = biomaRt::useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+        loci <- biomaRt::getBM(attributes = c( "hgnc_symbol","chromosome_name",'start_position','end_position'), filters = "hgnc_symbol", values = genes, mart = human)
+    }
+    return(loci)
+}
+
+#' find the nearby loci in a given loci set for a given set of genes
+#'
+#' @param genes a given set of genes
+#' @param loci the background loci set
+#' @param width the width from TSS
+#' @param species mouse or human
+#' @importFrom bedr bedr.sort.region in.region
+#' @export
+#'
+
+findNearbyLoci <- function(genes, loci, width = 50000, species = "mouse") {
+    gene.loci <- searchGeneRegions(genes, species)
+    gene.loci <- gene.loci[gene.loci$chromosome_name %in% c(1:22, "X","Y"), ]
+    gene.loci$start_position <- gene.loci$start_position-min(width, gene.loci$start_position)
+    gene.loci$end_position <- gene.loci$end_position + width
+    gene.loci.bed <- paste0("chr",gene.loci$chromosome_name, ":", gene.loci$start_position, "-",gene.loci$end_position)
+    gene.loci.bed.sort <- bedr::bedr.sort.region(gene.loci.bed);
+    a = grep(paste0("chr", c(1:22, "X","Y"), ":"), loci)
+    loci <- loci[grepl(paste(paste0("chr", c(1:22, "X","Y"), ":"), collapse="|"), loci)]
+
+    loci.sort <- bedr::bedr.sort.region(loci);
+    is.region <- bedr::in.region(loci.sort, gene.loci.bed.sort);
+    loci.nearby <- loci.sort[is.region]
+    return(loci.nearby)
+}
 
 #' Select number of the rank
 #'
@@ -1483,4 +1549,85 @@ reorderFeatures <- function(W, cutoff = 0.5) {
   list[["index_record"]] <- IndexW_record
   return(results)
 }
+
+#' Calculate the variance to mean ratio of logged values
+#'
+#' Calculate the variance to mean ratio (VMR) in non-logspace (return answer in
+#' log-space)
+#'
+#' @param x A vector of values
+#'
+#' @return Returns the VMR in log-space
+#'
+#' @importFrom stats var
+#'
+#' @export
+#'
+#' @examples
+#' LogVMR(x = c(1, 2, 3))
+#'
+LogVMR <- function(x) {
+    return(log(x = var(x = exp(x = x) - 1) / mean(x = exp(x = x) - 1)))
+}
+
+#' Calculate the mean of logged values
+#'
+#' Calculate mean of logged values in non-log space (return answer in log-space)
+#'
+#' @param x A vector of values
+#'
+#' @return Returns the mean in log-space
+#'
+#' @export
+#'
+#' @examples
+#' ExpMean(x = c(1, 2, 3))
+#'
+ExpMean <- function(x) {
+    return(log(x = mean(x = exp(x = x) - 1) + 1))
+}
+
+
+
+#' Convert a sparse matrix to a dense matrix
+#'
+#' @param mat A sparse matrix
+#' @export
+
+as_matrix <- function(mat){
+  Rcpp::sourceCpp(code='
+#include <Rcpp.h>
+using namespace Rcpp;
+    // [[Rcpp::export]]
+    IntegerMatrix asMatrix(NumericVector rp,
+    NumericVector cp,
+    NumericVector z,
+    int nrows,
+    int ncols){
+
+        int k = z.size() ;
+
+        IntegerMatrix  mat(nrows, ncols);
+
+        for (int i = 0; i < k; i++){
+            mat(rp[i],cp[i]) = z[i];
+        }
+
+        return mat;
+    }
+    ' )
+
+    row_pos <- mat@i
+    col_pos <- findInterval(seq(mat@x)-1,mat@p[-1])
+
+    tmp <- asMatrix(rp = row_pos, cp = col_pos, z = mat@x,
+    nrows =  mat@Dim[1], ncols = mat@Dim[2])
+
+    row.names(tmp) <- mat@Dimnames[[1]]
+    colnames(tmp) <- mat@Dimnames[[2]]
+    return(tmp)
+}
+
+
+
 
