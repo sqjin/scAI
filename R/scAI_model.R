@@ -131,13 +131,20 @@ preprocessing <- function(object, assay = list("RNA", "ATAC"), minFeatures = 200
 
     }
   }
-  if (!is.null(assay)) {
-    X1 <- object@norm.data[[assay[[1]]]]
-    X2 <- object@norm.data[[assay[[2]]]]
-    cell.keep <- intersect(colnames(X1), colnames(X2))
-    object@norm.data[[assay[[1]]]] <- X1[, cell.keep]
-    object@norm.data[[assay[[2]]]] <- X2[, cell.keep]
-  }
+if (length(assay) == 2) {
+        X1 <- object@norm.data[[assay[[1]]]]
+        X2 <- object@norm.data[[assay[[2]]]]
+        cell.keep <- intersect(colnames(X1), colnames(X2))
+        object@norm.data[[assay[[1]]]] <- X1[, cell.keep]
+        object@norm.data[[assay[[2]]]] <- X2[, cell.keep]
+    } else if (length(assay) == 1) {
+        X1 <- object@norm.data[[assay[[1]]]]
+        assay2 <- setdiff(names(object@raw.data), assay[[1]])
+        X2 <- object@raw.data[[assay2]]
+        cell.keep <- intersect(colnames(X1), colnames(X2))
+        object@norm.data[[assay[[1]]]] <- X1[, cell.keep]
+        object@norm.data[[assay2]] <- X2[, cell.keep]
+    }
   names(object@norm.data) <- names(object@raw.data)
   return(object)
 }
@@ -178,6 +185,8 @@ addpData <- function(object, pdata, pdata.name = NULL) {
 #' @param object scAI object
 #' @param K Rank of the inferred factor
 #' @param nrun Number of times to repreat the running
+#' @param hvg.use1 whether use high variable genes for RNA-seq data
+#' @param hvg.use2 whether use high variable genes for ATAC-seq data
 #' @param keep_all Whether keep all the results from multiple runs
 #' @param s Probability of Bernoulli distribution
 #' @param alpha model parameter
@@ -195,7 +204,7 @@ addpData <- function(object, pdata, pdata.name = NULL) {
 #' @importFrom foreach foreach "%dopar%"
 #' @importFrom parallel makeForkCluster makeCluster detectCores
 #' @importFrom doParallel registerDoParallel
-run_scAI <- function(object, K, nrun = 5, keep_all = F, s = 0.25, alpha = 1, lambda = 100000, gamma = 1, maxIter = 500, stop_rule = 1, init = NULL, rand.seed = 1) {
+run_scAI <- function(object, K, nrun = 5, hvg.use1 = TRUE, hvg.use2 = FALSE, keep_all = F, s = 0.25, alpha = 1, lambda = 100000, gamma = 1, maxIter = 200, stop_rule = 1, init = NULL, rand.seed = 1) {
   if (!is.null(init)) {
     W1.init = init$W1.init
     W2.init = init$W2.init
@@ -218,6 +227,17 @@ run_scAI <- function(object, K, nrun = 5, keep_all = F, s = 0.25, alpha = 1, lam
     parallel::makeCluster(numCores)
   })
   doParallel::registerDoParallel(cl)
+  
+  if (hvg.use1) {
+        X1 <- as.matrix(object@norm.data[[1]][object@var.features[[1]], ])
+    } else {
+        X1 <- as.matrix(object@norm.data[[1]])
+    }
+    if (hvg.use2) {
+        X2 <- as.matrix(object@norm.data[[2]][object@var.features[[2]], ])
+    } else {
+        X2 <- as.matrix(object@norm.data[[2]])
+    }
 
   X1 <- as.matrix(object@norm.data[[1]])
   X2 <- as.matrix(object@norm.data[[2]])
@@ -378,7 +398,7 @@ scAImodel <- function(X1, X2, K, s = 0.25, alpha = 1, lambda = 100000, gamma = 1
 
   ZR <- Z
   ZR[index] <- 0
-
+  ZR <- sweep(ZR, 2, colSums(ZR), FUN = `/`)
   X2agg <- eigenMapMatMult(X2, ZR)
   X2agg <- sweep(X2agg, 2, colSums(X2agg), FUN = `/`) * 10000
   X2agg <- log(1 + X2agg)
@@ -453,7 +473,7 @@ scAImodel <- function(X1, X2, K, s = 0.25, alpha = 1, lambda = 100000, gamma = 1
 #' @importFrom reticulate py_module_available py_set_seed import
 #'
 
-reducedDims <- function(object, data.use = object@fit$H, do.scale = TRUE, do.center = TRUE, return.object = TRUE, method = "tsne",
+reducedDims <- function(object, data.use = object@fit$H, do.scale = TRUE, do.center = TRUE, return.object = TRUE, method = "umap",
                         dim.embed = 2, dim.use = NULL, perplexity = 30, theta = 0.5, check_duplicates = F, rand.seed = 42L,
                         FItsne.path = NULL,
                         dimPC = 40,do.fast = TRUE, weight.by.var = TRUE,
@@ -505,10 +525,7 @@ reducedDims <- function(object, data.use = object@fit$H, do.scale = TRUE, do.cen
                            negative.sample.rate = negative.sample.rate,
                            a = a,
                            b = b,
-                           seed.use = rand.seed,
-                           metric.kwds = metric.kwds,
-                           angular.rp.forest = angular.rp.forest,
-                           verbose = verbose)
+                           seed.use = rand.seed)
     object@embed$umap <- cell_coords
 
   } else {
@@ -702,7 +719,12 @@ identifyFactorMarkers <- function(object, assay, features = NULL,
     IndexH_record1[[i]] <- which(H[i, ] > mH[i] + cutoff.H * sH[i])
     IndexH_record2[[i]] <- base::setdiff(c(1:ncol(H)), IndexH_record1[[i]])
   }
-
+    my.sapply <- ifelse(
+    test = future::nbrOfWorkers() == 1,
+    yes = pbapply::pbsapply,
+    no = future.apply::future_sapply
+    )
+  
   # identify factor-specific markers
   factor_markers = vector("list", K)
   markersTopn = vector("list", K)
@@ -716,10 +738,12 @@ identifyFactorMarkers <- function(object, assay, features = NULL,
     idx1 <- which(base::rowSums(data1 != 0) > thresh.pc * ncol(data1))  # at least expressed in thresh.pc% cells in one group
     FC <- log2(base::rowMeans(data1)/base::rowMeans(data2))
     idx2 <- which(FC > thresh.fc)
-    pvalues <- matrix(0, nrow(data1), 1)
-    for (j in 1:nrow(data1)) {
-      pvalues[j] <- wilcox.test(data1[j, ], data2[j, ], alternative = "greater", correct = T)$p.value
-    }
+    pvalues <- my.sapply(
+        X = 1:nrow(x = data1),
+        FUN = function(x) {
+            return(wilcox.test(data1[x, ], data2[x, ], alternative = "greater")$p.value)
+        }
+        )
 
     idx3 <- which(pvalues < thresh.p)
     idx = intersect(intersect(idx1, idx2), idx3)
