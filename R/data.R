@@ -9,8 +9,21 @@
 #'   ...
 #' }
 #' @source \url{https://bitbucket.org/ConesaLab/mosim/src/master/}
-"pairedData_simulation"
+"data_simulation"
 
+
+#' single cell multi-omics data of kidney cells.
+#'
+#' kidney dataset containing paired single-cell RNA-seq and ATAC-seq data as well as the label information of each cell from the original paper
+#'
+#' @format A list contains two field data:
+#' \describe{
+#'   \item{data}{Single-cell RNA-seq and ATAC-seq data}
+#'   \item{labels}{The cell type information of cell groups}
+#'   ...
+#' }
+#' @source \url{https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117089}
+"data_kidney"
 
 
 #' single cell multi-omics data of A549 cells.
@@ -24,4 +37,19 @@
 #'   ...
 #' }
 #' @source \url{https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117089}
-"pairedData_A549"
+"data_A549"
+
+
+#' single cell multi-omics data of mESC cells.
+#'
+#' mESC dataset containing paired single-cell RNA-seq and single-cell methylation data as well as the culture condition information of each cell
+#'
+#' @format A list contains two field data:
+#' \describe{
+#'   \item{data}{Single-cell RNA-seq and single-cell methylation data}
+#'   \item{labels}{The culture condition information of cells}
+#'   ...
+#' }
+#' @source \url{https://github.com/bioFAM/MOFA/blob/master/vignettes/MOFA_example_scMT.Rmd}
+"data_mESC"
+
