@@ -1,7 +1,7 @@
 Package: scAI
 Type: Package
 Title: integrative analysis of single-cell transcriptomic and epigenomic profiles 
-Version: 0.1.1
+Version: 0.1.2
 Author: Suoqin Jin, Lihua Zhang
 Maintainer: Suoqin Jin <suoqin.jin@uci.edu>, Lihua Zhang <lihuaz1@uci.edu>
 Description: an unsupervised method for integrative analysis of parallel single-cell transcriptomic and epigenomic profiles.
