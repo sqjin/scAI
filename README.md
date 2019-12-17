@@ -46,13 +46,13 @@ devtools::install_github("sqjin/scAI")
 ```
 
 ### Install from R source codes
-Download source codes [here](https://github.com/sqjin/scAI/blob/master/scAI_0.1.1.tar.gz) and type (in R)
+Download source codes [here](https://github.com/sqjin/scAI/blob/master/scAI_0.1.2.tar.gz) and type (in R)
 ```
 install.packages(path_to_file, type = 'source', rep = NULL)
 ```
 The path_to_file would represent the full path and file name:
-- On macOS/UNIX it will look like this: "~/Downloads/scAI_0.1.1.tar.gz".
-- On Windows it will look something like this: "C:\Downloads\scAI_0.1.1.tar.gz".
+- On macOS/UNIX it will look like this: "~/Downloads/scAI_0.1.2.tar.gz".
+- On Windows it will look something like this: "C:\Downloads\scAI_0.1.2.tar.gz".
 
 
 ### Additional installation steps for downstream analysis (possibly)
