@@ -267,10 +267,11 @@ run_scAI <- function(object, K, nrun = 5, hvg.use1 = FALSE, hvg.use2 = FALSE, ke
     if (!keep_all) {
         sprintf("The best seed is %d", which.min(objs))
         outs_final <- outs[[which.min(objs)]]
-        object@agg.data <- outs_final$agg.data
+        #object@agg.data <- outs_final$agg.data
         W = list(W1 = outs_final$W1, W2 = outs_final$W2)
         names(W) <- names(object@norm.data)
         object@fit <- list(W = W, H = outs_final$H, Z = outs_final$Z, R = outs_final$R)
+        object <- getAggregatedData(object)
         object@cluster$consensus <- CM
         object@options$cost <- objs
         object@options$paras <- outs_final$options
@@ -395,27 +396,49 @@ scAImodel <- function(X1, X2, K, s = 0.25, alpha = 1, lambda = 100000, gamma = 1
   # compute the execution time
   execution.time = proc.time() - ptm
 
-  ZR <- Z
-  ZR[index] <- 0
-  ZR <- sweep(ZR, 2, colSums(ZR), FUN = `/`)
-  X2agg <- eigenMapMatMult(X2, ZR)
-  X2agg <- sweep(X2agg, 2, colSums(X2agg), FUN = `/`) * 10000
-  X2agg <- log(1 + X2agg)
-
   barcodes <- colnames(X2)
   feature1 <- rownames(X1)
   feature2 <- rownames(X2)
   names_com <- paste0("factor", seq_len(K))
-  attr(X2agg, "dimnames") <- list(feature2, barcodes)
   attr(W1, "dimnames") <- list(feature1, names_com)
   attr(W2, "dimnames") <- list(feature2, names_com)
   attr(H, "dimnames") <- list(names_com, barcodes)
   attr(Z, "dimnames") <- list(barcodes, barcodes)
 
-  outs <- list(agg.data = X2agg, W1 = W1, W2 = W2, H = H, Z = Z, R = R,
+  outs <- list(W1 = W1, W2 = W2, H = H, Z = Z, R = R,
                options = list(s = s, alpha = alpha, lambda = lambda, gamma = gamma, maxIter = maxIter, stop_rule = stop_rule, run.time = execution.time))
   return(outs)
 
+}
+
+
+#' Generate the aggregated epigenomic data
+#'
+#' @param object an scAI object after running run_scAI
+#' @param group cell group information if available; aggregate epigenomic data based on the available cell group information instead of the learned cell-cell similarity matrix from scAI
+#'
+#' @return
+#' @export
+#'
+getAggregatedData <- function(object, group = NULL) {
+  if (is.null(group)) {
+    Z <-  object@fit$Z
+  } else {
+    if (is.factor(group) | is.character(group)) {
+      group <- as.numeric(factor(group))
+    }
+    Z <- clust2Mat(group)
+  }
+  R <- object@fit$R
+  ZR <- Z * R
+  ZR <- sweep(ZR, 2, colSums(ZR), FUN = `/`)
+  X2 <- as.matrix(object@norm.data[[2]])
+  X2agg <- eigenMapMatMult(X2, ZR)
+  X2agg <- sweep(X2agg, 2, colSums(X2agg), FUN = `/`) * 10000
+  X2agg <- log(1 + X2agg)
+  attr(X2agg, "dimnames") <- list(rownames(object@norm.data[[2]]), colnames(object@norm.data[[2]]))
+  object@agg.data <- X2agg
+  return(object)
 }
 
 
