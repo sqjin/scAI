@@ -428,6 +428,8 @@ getAggregatedData <- function(object, group = NULL) {
       group <- as.numeric(factor(group))
     }
     Z <- clust2Mat(group)
+    diag(Z) <- 1
+    object@fit$Z <- Z
   }
   R <- object@fit$R
   ZR <- Z * R
@@ -770,25 +772,12 @@ identifyFactorMarkers <- function(object, assay, features = NULL, cutoff.W = 0.5
         idx1 <- which(base::rowSums(data1 != 0) > thresh.pc * ncol(data1))  # at least expressed in thresh.pc% cells in one group
         FC <- log2(base::rowMeans(data1)/base::rowMeans(data2))
         idx2 <- which(FC > thresh.fc)
-        # pvalues <- matrix(0, nrow(data1), 1)
-        # for (j in 1:nrow(data1)) {
-        #   pvalues[j] <- wilcox.test(data1[j, ], data2[j, ], alternative = "greater", correct = T)$p.value
-        # }
-        #
         pvalues <- my.sapply(
         X = 1:nrow(x = data1),
         FUN = function(x) {
             return(wilcox.test(data1[x, ], data2[x, ], alternative = "greater")$p.value)
         }
         )
-        # pvalues <- foreach(x = 1:nrow(data1),.combine = c) %dopar% {
-        #   return(wilcox.test(data1[x, ], data2[x, ], alternative = "greater")$p.value)
-        #   }
-        # pvalues = stats::p.adjust(
-        # p = pvalues,
-        # method = "bonferroni",
-        # n = nrow(X)
-        # )
 
         idx3 <- which(pvalues < thresh.p)
         idx = intersect(intersect(idx1, idx2), idx3)
@@ -1175,7 +1164,7 @@ clust2Mat <- function(memb) {
 #'
 #' @examples
 identifyClusterMarkers <- function(object, assay, features = NULL, use.agg = TRUE, test.use = "bimod",
-thresh.pc = 0.05, thresh.fc = 0.25, thresh.p = 0.05) {
+thresh.pc = 0.25, thresh.fc = 0.25, thresh.p = 0.01) {
     if (assay == "RNA") {
         X <- object@norm.data[[assay]]
     } else {
@@ -1186,11 +1175,11 @@ thresh.pc = 0.05, thresh.fc = 0.25, thresh.p = 0.05) {
         }
     }
     if (is.null(features)) {
-        features <- row.names(X)
+        features.use <- row.names(X)
     } else {
-        features <- intersect(features, row.names(X))
+        features.use <- intersect(features, row.names(X))
     }
-    data.use <- X[features,]
+    data.use <- X[features.use,]
     data.use <- as.matrix(data.use)
 
     groups <- object@identity
@@ -1207,32 +1196,46 @@ thresh.pc = 0.05, thresh.fc = 0.25, thresh.p = 0.05) {
 
     mean.fxn <- function(x) {
         return(log(x = mean(x = expm1(x = x)) + 1))
-        # return(log(x = mean(x = x) + pseudocount.use))
     }
     genes.de <- vector("list", length = numCluster)
     for (i in 1:numCluster) {
+        features <- features.use
         cell.use1 <- which(labels %in% level.use[i])
         cell.use2 <- base::setdiff(1:length(labels), cell.use1)
-        data1 <- data.use[, cell.use1]
-        data2 <- data.use[, cell.use2]
-        idx1 <- rowSums(data1 != 0) > thresh.pc * ncol(data1) # at least expressed in thresh.pc cells in one group
 
-        data.1 <- apply(
-        X = data1,
-        MARGIN = 1,
-        FUN = mean.fxn
-        )
-        data.2 <- apply(
-        X = data2,
-        MARGIN = 1,
-        FUN = mean.fxn
-        )
-        FC <- (data.1 - data.2)
-        idx2 <- FC > thresh.fc
+# feature selection (based on percentages)
+    thresh.min <- 0
+    pct.1 <- round(
+      x = rowSums(x = data.use[features, cell.use1, drop = FALSE] > thresh.min) /
+        length(x = cell.use1),
+      digits = 3
+    )
+    pct.2 <- round(
+      x = rowSums(x = data.use[features, cell.use2, drop = FALSE] > thresh.min) /
+        length(x = cell.use2),
+      digits = 3
+    )
+    data.alpha <- cbind(pct.1, pct.2)
+    colnames(x = data.alpha) <- c("pct.1", "pct.2")
+    alpha.min <- apply(X = data.alpha, MARGIN = 1, FUN = max)
+    names(x = alpha.min) <- rownames(x = data.alpha)
+    features <- names(x = which(x = alpha.min > thresh.pc))
+    if (length(x = features) == 0) {
+      stop("No features pass thresh.pc threshold")
+    }
 
-        FC <- FC[idx1 & idx2]
-        data1 <- data1[idx1 & idx2, ]
-        data2 <- data2[idx1 & idx2, ]
+    # feature selection (based on average difference)
+    data.1 <- apply(X = data.use[features, cell.use1, drop = FALSE],MARGIN = 1,FUN = mean.fxn)
+    data.2 <- apply(X = data.use[features, cell.use2, drop = FALSE],MARGIN = 1,FUN = mean.fxn)
+    FC <- (data.1 - data.2)
+    features.diff <- names(x = which(x = FC > thresh.fc))
+    features <- intersect(x = features, y = features.diff)
+    if (length(x = features) == 0) {
+      stop("No features pass thresh.fc threshold")
+    }
+
+    data1 <- data.use[features, cell.use1, drop = FALSE]
+    data2 <- data.use[features, cell.use2, drop = FALSE]
 
         if (test.use == "wilcox") {
             pvalues <- unlist(
@@ -1263,8 +1266,7 @@ thresh.pc = 0.05, thresh.fc = 0.25, thresh.p = 0.05) {
         method = "bonferroni",
         n = nrow(X)
         )
-        genes.de[[i]] <- data.frame(clusters = level.use[i], features = as.character(rownames(data1)), pvalues = pvalues, pval_adj = pval.adj, logFC = FC)
-        #genes.de[[i]] <- de[pvalues < thresh.p, ]
+        genes.de[[i]] <- data.frame(clusters = level.use[i], features = as.character(rownames(data1)), pvalues = pvalues, pval_adj = pval.adj, logFC = FC[features], data.alpha[features,])
     }
 
     markers.all <- data.frame()
