@@ -5,8 +5,8 @@
 \title{Identify markers in each cell cluster}
 \usage{
 identifyClusterMarkers(object, assay, features = NULL, use.agg = TRUE,
-  test.use = "bimod", thresh.pc = 0.05, thresh.fc = 0.25,
-  thresh.p = 0.05)
+  test.use = "bimod", thresh.pc = 0.25, thresh.fc = 0.25,
+  thresh.p = 0.01)
 }
 \arguments{
 \item{object}{scAI object}
