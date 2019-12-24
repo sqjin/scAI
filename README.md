@@ -25,7 +25,7 @@ All the R markdown used to generate the walkthroughs can be found under the /exa
 - Simulated single cell RNA-seq and ATAC-seq data [(Walkthrough)](https://htmlpreview.github.io/?https://github.com/sqjin/scAI/blob/master/examples/walkthrough_simulation.html):  This simulated data were generated based on bulk RNA-seq and DNase-seq profiles from the same sample using MOSim package. 
 - Paired single cell RNA-seq and ATAC-seq data of A549 cells [(Walkthrough)](https://htmlpreview.github.io/?https://github.com/sqjin/scAI/blob/master/examples/walkthrough_A549dataset.html): This data describes lung adenocarcinoma-derived A549 cells after 0, 1 and 3 hours of 100 nM dexamethasone treatment. 
 - Paired single-cell RNA-seq and single-cell methylation data of mESC [(Walkthrough)](https://htmlpreview.github.io/?https://github.com/sqjin/scAI/blob/master/examples/walkthrough_mESC_dataset.html): This data describes the differentiation of mouse embryonic stem cells (mESC). 
-- Paired single cell RNA-seq and ATAC-seq data of Kidney cells: This data describes various subpopulations of Kidney cells, including scRNA-seq and scATAC-seq data of 8837 co-assayed cells. (Will be added in next two days)
+- Paired single cell RNA-seq and ATAC-seq data of Kidney cells [(Walkthrough)](https://htmlpreview.github.io/?https://github.com/sqjin/scAI/blob/master/examples/walkthrough_Kidneydataset.html): This data describes various subpopulations of Kidney cells, including scRNA-seq and scATAC-seq data of 8837 co-assayed cells.
 
 
 ## Installation 
@@ -39,22 +39,12 @@ devtools::install_github("jaredhuling/rfunctions")
 **Troubleshooting**: Installing RcppEigen and rfunctions on R>=3.5 requires Clang >= 6 and gfortran-6.1. For MacOS, it's recommended to follow guidance on the official R page [here](https://cloud.r-project.org/bin/macosx/tools/) OR the [post](https://thecoatlessprofessor.com/programming/r-compiler-tools-for-rcpp-on-macos-before-r-3.6.0/).  For Windows, please ensure that [Rtools](https://cran.r-project.org/bin/windows/Rtools/) is installed. 
 
 
-Then scAI R package can be installed by the following two ways. 
+Then scAI R package can be installed by the following way. 
 
 ### Install from Github using devtools
 ```
 devtools::install_github("sqjin/scAI")
 ```
-
-### Install from R source codes
-Download source codes [here](https://github.com/sqjin/scAI/blob/master/scAI_0.1.2.tar.gz) and type (in R)
-```
-install.packages(path_to_file, type = 'source', rep = NULL)
-```
-The path_to_file would represent the full path and file name:
-- On macOS/UNIX it will look like this: "~/Downloads/scAI_0.1.2.tar.gz".
-- On Windows it will look something like this: "C:\Downloads\scAI_0.1.2.tar.gz".
-
 
 ### Additional installation steps for downstream analysis (possibly)
 - Install other dependencies
