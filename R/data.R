@@ -8,8 +8,19 @@
 #'   \item{labels}{The true labels of cell groups}
 #'   ...
 #' }
-#' @source \url{https://bitbucket.org/ConesaLab/mosim/src/master/}
+#' @source \url{https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1932-8}
 "data_simulation"
+
+#' A simulation dataset consists of five imbalanced cell clusters with five clusters in scRNA-seq data and three clusters in scATAC-seq data
+#'
+#' @format A list contains two field data:
+#' \describe{
+#'   \item{data}{Simulated single-cell RNA-seq and ATAC-seq data}
+#'   \item{labels}{The true labels of cell groups}
+#'   ...
+#' }
+#' @source \url{https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1932-8}
+"data_simulation8"
 
 
 #' single cell multi-omics data of kidney cells.
