@@ -13,6 +13,10 @@ Once the single cell multi-omics data are decomposed into multiple biologically 
 - Visualize clusters and gene expression in the low-dimensional space such as VscAI, t-SNE and UMAP
 - Infer regulatory relationships between cluster-specific chromatin region and marker genes
 
+![Overview of scAI](https://github.com/sqjin/scAI/blob/master/overview_scAI.png)
+
+Check out [our paper (Suoqin Jin#, Lihua Zhang# & Qing Nie*, Genome Biology, 2020)](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1932-8) for the detailed methods and applications. 
+
 
 ## Packages
 scAI has been implemented as both **R package** and **MATLAB package** under the license GPL-3. In each package, we provide example workflows that outline the key steps and unique features of scAI. The **MATLAB package and examples** are available [here](https://github.com/amsszlh/scAI).
