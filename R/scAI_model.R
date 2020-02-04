@@ -184,7 +184,8 @@ addpData <- function(object, pdata, pdata.name = NULL) {
 #' run scAI model
 #'
 #' @param object scAI object
-#' @param K Rank of the inferred factor
+#' @param K An integer indicating the Rank of the inferred factor
+#' @param do.fast whether use the python version for running scAI optimization model
 #' @param nrun Number of times to repreat the running
 #' @param hvg.use1 whether use high variable genes for RNA-seq data
 #' @param hvg.use2 whether use high variable genes for ATAC-seq data
@@ -193,10 +194,10 @@ addpData <- function(object, pdata, pdata.name = NULL) {
 #' @param alpha model parameter
 #' @param lambda model parameter
 #' @param gamma model parameter
-#' @param maxIter Maximum number of iteration
+#' @param maxIter An integer indicating Maximum number of iteration
 #' @param stop_rule Stop rule to be used
 #' @param init List of the initialized low-rank matrices
-#' @param rand.seed seed
+#' @param rand.seed An integer indicating the seed
 #'
 #' @return
 #' @export
@@ -205,7 +206,8 @@ addpData <- function(object, pdata, pdata.name = NULL) {
 #' @importFrom foreach foreach "%dopar%"
 #' @importFrom parallel makeForkCluster makeCluster detectCores
 #' @importFrom doParallel registerDoParallel
-run_scAI <- function(object, K, nrun = 5, hvg.use1 = FALSE, hvg.use2 = FALSE, keep_all = F, s = 0.25, alpha = 1, lambda = 100000, gamma = 1, maxIter = 500, stop_rule = 1, init = NULL, rand.seed = 1) {
+#' @importFrom reticulate r_to_py source_python
+run_scAI <- function(object, K, do.fast = FALSE, nrun = 5L, hvg.use1 = FALSE, hvg.use2 = FALSE, keep_all = F, s = 0.25, alpha = 1, lambda = 100000, gamma = 1, maxIter = 500L, stop_rule = 1L, init = NULL, rand.seed = 1L) {
     if (!is.null(init)) {
         W1.init = init$W1.init
         W2.init = init$W2.init
@@ -239,11 +241,42 @@ run_scAI <- function(object, K, nrun = 5, hvg.use1 = FALSE, hvg.use2 = FALSE, ke
         X2 <- as.matrix(object@norm.data[[2]])
     }
 
-
-    outs <- foreach(i = 1:nrun, .packages = c("Matrix")) %dopar% {
+    if (!do.fast) {
+      outs <- foreach(i = 1:nrun, .packages = c("Matrix")) %dopar% {
         set.seed(rand.seed + i - 1)
         scAImodel(X1, X2, K = K, s = s, alpha = alpha, lambda = lambda, gamma = gamma, maxIter = maxIter, stop_rule = stop_rule,
-        R.init = R.init, W1.init = W1.init, W2.init = W2.init, H.init = H.init, Z.init = Z.init)
+                  R.init = R.init, W1.init = W1.init, W2.init = W2.init, H.init = H.init, Z.init = Z.init)
+      }
+    } else {
+      barcodes <- colnames(X2)
+      feature1 <- rownames(X1)
+      feature2 <- rownames(X2)
+      names_com <- paste0("factor", seq_len(K))
+
+      path <- paste(system.file(package="scAI"), "scAImodel_py.py", sep="/")
+      reticulate::source_python(path)
+      X1py = r_to_py(X1)
+      X2py = r_to_py(X2)
+      R.initpy = r_to_py(R.init); W1.initpy = r_to_py(W1.init); W2.initpy = r_to_py(W2.init); H.initpy = r_to_py(H.init); Z.initpy = r_to_py(Z.init)
+      K = as.integer(K); maxIter = as.integer(maxIter)
+      outs <- pbapply::pbsapply(
+        X = 1:nrun,
+        FUN = function(x) {
+          seed = as.integer(rand.seed + x - 1)
+          ptm = Sys.time()
+          results = scAImodel_py(X1 = X1py, X2 = X2py, K = K, S = s, Alpha = alpha, Lambda = lambda, Gamma = gamma, Maxiter = maxIter, Stop_rule = stop_rule,
+                                 Seed = seed, W1 = W1.initpy, W2 = W2.initpy, H = H.initpy, Z = Z.initpy,R = R.initpy)
+          execution.time = Sys.time() - ptm
+          names(results) <- c("W1", "W2", "H", "Z", "R")
+          attr(results$W1, "dimnames") <- list(feature1, names_com)
+          attr(results$W2, "dimnames") <- list(feature2, names_com)
+          attr(results$H, "dimnames") <- list(names_com, barcodes)
+          attr(results$Z, "dimnames") <- list(barcodes, barcodes)
+          results$options = list(s = s, alpha = alpha, lambda = lambda, gamma = gamma, maxIter = maxIter, stop_rule = stop_rule, run.time = execution.time)
+          return(results)
+        },
+        simplify = FALSE
+      )
     }
 
     objs <- foreach(i = 1:nrun, .combine = c) %dopar% {
@@ -253,7 +286,7 @@ run_scAI <- function(object, K, nrun = 5, hvg.use1 = FALSE, hvg.use2 = FALSE, ke
     }
     parallel::stopCluster(cl)
     N <- ncol(X1)
-    C <- matrix(0, N, N)
+    C <- base::matrix(0, N, N)
     for (i in seq_len(nrun)) {
         H <- outs[[i]]$H
         H <- sweep(H, 2, colSums(H), FUN = `/`)
