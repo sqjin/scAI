@@ -4,14 +4,30 @@
 \alias{run_scAI}
 \title{run scAI model}
 \usage{
-run_scAI(object, K, nrun = 5, hvg.use1 = FALSE, hvg.use2 = FALSE,
-  keep_all = F, s = 0.25, alpha = 1, lambda = 1e+05, gamma = 1,
-  maxIter = 500, stop_rule = 1, init = NULL, rand.seed = 1)
+run_scAI(
+  object,
+  K,
+  do.fast = FALSE,
+  nrun = 5L,
+  hvg.use1 = FALSE,
+  hvg.use2 = FALSE,
+  keep_all = F,
+  s = 0.25,
+  alpha = 1,
+  lambda = 1e+05,
+  gamma = 1,
+  maxIter = 500L,
+  stop_rule = 1L,
+  init = NULL,
+  rand.seed = 1L
+)
 }
 \arguments{
 \item{object}{scAI object}
 
-\item{K}{Rank of the inferred factor}
+\item{K}{An integer indicating the Rank of the inferred factor}
+
+\item{do.fast}{whether use the python version for running scAI optimization model}
 
 \item{nrun}{Number of times to repreat the running}
 
@@ -29,13 +45,16 @@ run_scAI(object, K, nrun = 5, hvg.use1 = FALSE, hvg.use2 = FALSE,
 
 \item{gamma}{model parameter}
 
-\item{maxIter}{Maximum number of iteration}
+\item{maxIter}{An integer indicating Maximum number of iteration}
 
 \item{stop_rule}{Stop rule to be used}
 
 \item{init}{List of the initialized low-rank matrices}
 
-\item{rand.seed}{seed}
+\item{rand.seed}{An integer indicating the seed}
+}
+\value{
+
 }
 \description{
 run scAI model
