@@ -22,6 +22,14 @@ Check out [our paper (Suoqin Jin#, Lihua Zhang# & Qing Nie*, Genome Biology, 202
 scAI has been implemented as both **R package** and **MATLAB package** under the license GPL-3. In each package, we provide example workflows that outline the key steps and unique features of scAI. The **MATLAB package and examples** are available [here](https://github.com/amsszlh/scAI).
 
 
+## Installation 
+
+Then scAI R package can be installed from Github using devtools. 
+
+```
+devtools::install_github("sqjin/scAI")
+```
+
 ## Examples and Walkthroughs
 
 All the R markdown used to generate the walkthroughs can be found under the /examples directory. 
@@ -32,10 +40,29 @@ All the R markdown used to generate the walkthroughs can be found under the /exa
 - Paired single-cell RNA-seq and single-cell methylation data of mESC [(Walkthrough)](https://htmlpreview.github.io/?https://github.com/sqjin/scAI/blob/master/examples/walkthrough_mESC_dataset.html): This data describes the differentiation of mouse embryonic stem cells (mESC). 
 - Paired single cell RNA-seq and ATAC-seq data of Kidney cells [(Walkthrough)](https://htmlpreview.github.io/?https://github.com/sqjin/scAI/blob/master/examples/walkthrough_Kidneydataset.html): This data describes various subpopulations of Kidney cells, including scRNA-seq and scATAC-seq data of 8837 co-assayed cells.
 
+## Suggestions for speeding up on large-scale datasets
+#### Using the Python implementation of scAI model: 
+```
+object <- run_scAI(object, K, do.fast = TRUE)
+```
+#### Feature selection: 
+-- Using informative genes: 
+```
+object <- selectFeatures(object, assay = "RNA")
+object <- run_scAI(object, K, do.fast = TRUE, hvg.use1 = TRUE)
+```
+-- Using informative loci: 
+```
+object <- selectFeatures(object, assay = "RNA")
+loci.use <- searchGeneRegions(genes = object@var.features[[1]], species = "mouse")
+object@var.features[[2]] <- loci.use
+object <- run_scAI(object, K, do.fast = TRUE, hvg.use1 = TRUE, hvg.use2 = TRUE)
+```
 
-## Installation 
 
-Before installing scAI R package, please install [RcppEigen](https://github.com/RcppCore/RcppEigen) and [rfunctions](https://github.com/jaredhuling/rfunctions).
+## Additional installation steps (possibly)
+
+- Please consider install [RcppEigen](https://github.com/RcppCore/RcppEigen) and [rfunctions](https://github.com/jaredhuling/rfunctions) if they are not automatically installed.
 ```
 if(!require(devtools)){ install.packages("devtools")}
 install.packages("RcppEigen")
@@ -44,14 +71,6 @@ devtools::install_github("jaredhuling/rfunctions")
 **Troubleshooting**: Installing RcppEigen and rfunctions on R>=3.5 requires Clang >= 6 and gfortran-6.1. For MacOS, it's recommended to follow guidance on the official R page [here](https://cloud.r-project.org/bin/macosx/tools/) OR the [post](https://thecoatlessprofessor.com/programming/r-compiler-tools-for-rcpp-on-macos-before-r-3.6.0/).  For Windows, please ensure that [Rtools](https://cran.r-project.org/bin/windows/Rtools/) is installed. 
 
 
-Then scAI R package can be installed by the following way. 
-
-### Install from Github using devtools
-```
-devtools::install_github("sqjin/scAI")
-```
-
-### Additional installation steps for downstream analysis (possibly)
 - Install other dependencies
 
 scAI provides functionality for further data exploration, analysis, and visualization. A couple of excellent packages need to be installed. 
