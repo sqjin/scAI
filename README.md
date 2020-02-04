@@ -48,7 +48,10 @@ All the R markdown used to generate the walkthroughs can be found under the /exa
 object <- run_scAI(object, K, do.fast = TRUE)
 ```
 
-### Feature selection 
+### Feature selection
+
+Feature selection can reduce the running time in both scAI model and downstream analysis such as dimension reduction.
+
 - Using informative genes for scRNA-seq data: 
 
 The most informative genes can be selected based on their average expression and Fano factor (see [our paper](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1932-8) for details).
