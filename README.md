@@ -41,23 +41,28 @@ All the R markdown used to generate the walkthroughs can be found under the /exa
 - Paired single cell RNA-seq and ATAC-seq data of Kidney cells [(Walkthrough)](https://htmlpreview.github.io/?https://github.com/sqjin/scAI/blob/master/examples/walkthrough_Kidneydataset.html): This data describes various subpopulations of Kidney cells, including scRNA-seq and scATAC-seq data of 8837 co-assayed cells.
 
 ## Suggestions for speeding up on large-scale datasets
-#### Using the Python implementation of scAI model: 
+
+#### Using the Python implementation of scAI model
 ```
 object <- run_scAI(object, K, do.fast = TRUE)
 ```
-#### Feature selection: 
--- Using informative genes: 
+
+#### Feature selection 
+- Using informative genes for scRNA-seq data: 
+The most informative genes are selected based on their average expression and Fano factor (see [our paper](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1932-8) for details).
 ```
 object <- selectFeatures(object, assay = "RNA")
 object <- run_scAI(object, K, do.fast = TRUE, hvg.use1 = TRUE)
 ```
--- Using informative loci: 
+- Using informative loci for scATAC-seq or single cell methylation data: 
+Unlike scRNA-seq data, the largely binary nature of scATAC-seq data makes it challenging to perform ‘variable’ feature selection. One option is to select the nearby chromsome regions of the informative genes. 
 ```
 object <- selectFeatures(object, assay = "RNA")
 loci.use <- searchGeneRegions(genes = object@var.features[[1]], species = "mouse")
 object@var.features[[2]] <- loci.use
 object <- run_scAI(object, K, do.fast = TRUE, hvg.use1 = TRUE, hvg.use2 = TRUE)
 ```
+Another option is to use only the top n% of features or remove features present in less that n cells. This method is used in [Signac](https://satijalab.org/signac/articles/pbmc_vignette.html). 
 
 
 ## Additional installation steps (possibly)
