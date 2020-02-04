@@ -117,6 +117,6 @@ sudo installer -pkg \
 ## Help
 If you have any problems, comments or suggestions, please contact us at Suoqin Jin (suoqin.jin@uci.edu) or Lihua Zhang (lihuaz1@uci.edu).
 
-
-
+## How should I cite scAI?
+Jin, S., Zhang, L. & Nie, Q. scAI: an unsupervised approach for the integrative analysis of parallel single-cell transcriptomic and epigenomic profiles. Genome Biol 21, 25 (2020). https://doi.org/10.1186/s13059-020-1932-8
 
