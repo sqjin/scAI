@@ -15,6 +15,7 @@ Once the single cell multi-omics data are decomposed into multiple biologically 
 
 ![Overview of scAI](https://github.com/sqjin/scAI/blob/master/overview_scAI.png)
 
+
 Check out [our paper (Suoqin Jin#, Lihua Zhang# & Qing Nie*, Genome Biology, 2020)](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1932-8) for the detailed methods and applications. 
 
 
@@ -42,15 +43,15 @@ All the R markdown used to generate the walkthroughs can be found under the /exa
 
 ## Suggestions for speeding up on large-scale datasets
 
-#### Using the Python implementation of scAI model
+### Using the Python implementation of scAI model
 ```
 object <- run_scAI(object, K, do.fast = TRUE)
 ```
 
-#### Feature selection 
+### Feature selection 
 - Using informative genes for scRNA-seq data: 
 
-The most informative genes are selected based on their average expression and Fano factor (see [our paper](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1932-8) for details).
+The most informative genes can be selected based on their average expression and Fano factor (see [our paper](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1932-8) for details).
 ```
 object <- selectFeatures(object, assay = "RNA")
 object <- run_scAI(object, K, do.fast = TRUE, hvg.use1 = TRUE)
