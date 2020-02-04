@@ -49,12 +49,14 @@ object <- run_scAI(object, K, do.fast = TRUE)
 
 #### Feature selection 
 - Using informative genes for scRNA-seq data: 
+
 The most informative genes are selected based on their average expression and Fano factor (see [our paper](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1932-8) for details).
 ```
 object <- selectFeatures(object, assay = "RNA")
 object <- run_scAI(object, K, do.fast = TRUE, hvg.use1 = TRUE)
 ```
 - Using informative loci for scATAC-seq or single cell methylation data: 
+
 Unlike scRNA-seq data, the largely binary nature of scATAC-seq data makes it challenging to perform ‘variable’ feature selection. One option is to select the nearby chromsome regions of the informative genes. 
 ```
 object <- selectFeatures(object, assay = "RNA")
@@ -62,6 +64,7 @@ loci.use <- searchGeneRegions(genes = object@var.features[[1]], species = "mouse
 object@var.features[[2]] <- loci.use
 object <- run_scAI(object, K, do.fast = TRUE, hvg.use1 = TRUE, hvg.use2 = TRUE)
 ```
+
 Another option is to use only the top n% of features or remove features present in less that n cells. This method is used in [Signac](https://satijalab.org/signac/articles/pbmc_vignette.html). 
 
 
