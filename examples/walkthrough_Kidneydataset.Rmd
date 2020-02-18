@@ -30,13 +30,12 @@ library(cowplot)
 ```
 
 ## Load data
-The algorithm takes a list of two digital data matrices as input. Genes/loci should be in rows and cells in columns. rownames and colnames should be included. Before running the scAI model, we need to normalize the data to account for library size and select highly variable features. Our preprocessed data matrices after normalization were provided for this walkthrough.
+The algorithm takes a list of two digital data matrices as input. Genes/loci should be in rows and cells in columns. rownames and colnames should be included. Before running the scAI model, we need to normalize the data to account for library size and select highly variable features. Our preprocessed data matrices after qualify control, normalization and feature selection were provided for this walkthrough.
 
 ```{r}
-load("/Users/suoqinjin/Documents/scAI/data/data_kidney.rda")
+load("/Users/suoqinjin/Documents/scAI-master/data/data_kidney.Rdata")
 X <- data_kidney$data # List of data matrix
-labels <- data_kidney$labels # the prior labels of cells, which is used for validation
-init <- data_kidney$init # for reproduction
+labels <- data_kidney$labels # the prior labels of cells
 ```
 
 ## Create a scAI object
@@ -46,7 +45,7 @@ scAI_outs <- create_scAIobject(raw.data = X, do.sparse = F)
 
 ## Preprocess data
 Perform quality control to remove low-quality cells and genes, and normalize the data.
-Since this is a preprocessed data, we do not need to normalize the data. Thus we set `assay = NULL`.
+Since this is a preprocessed data, we set `assay = NULL`.
 
 ```{r, results='asis'}
 scAI_outs <- preprocessing(scAI_outs, assay = NULL)
@@ -59,9 +58,10 @@ scAI_outs <- addpData(scAI_outs, pdata = labels, pdata.name = "Cell types")
 ```
 
 ## Run scAI model
-As depending on the random initilization the results might differ, we run scAI multiple times (e.g. nrun = 5) and output the best result. User can also output results from all runs by setting *keep_all = TRUE*. One parameter here is the number of components. The `selectK` function can aid in selecting K. A suitable K is the one at which the magnitude of cophenetic correlation begins to fall.
+As depending on the random initilization the results might differ, one run scAI multiple times (e.g. nrun = 5) and output the best result. User can also output results from all runs by setting *keep_all = TRUE*. One parameter here is the number of components. The `selectK` function can aid in selecting K. A suitable K is the one at which the magnitude of cophenetic correlation begins to fall. Here, we only run one time. 
+
 ```{r}
-scAI_outs <- run_scAI(scAI_outs, K = 20, nrun = 1, init = init)
+scAI_outs <- run_scAI(scAI_outs, K = 20, nrun = 1, do.fast = T) # Using Python implementation by setting do.fast = TRUE
 fit <- scAI_outs@fit
 save(fit, file = "results_scAI_fit.RData") # save the inferred low-dimensional representations
 
@@ -70,7 +70,7 @@ save(fit, file = "results_scAI_fit.RData") # save the inferred low-dimensional r
 ## Identify cell clusters
 We can also identify cell clusters based on the inferred cell loading matrix using Leiden algorithm.
 ```{r}
-scAI_outs <- identifyClusters(scAI_outs, resolution = 1)
+scAI_outs <- identifyClusters(scAI_outs, resolution = 0.9) 
 scAI_outs <- getAggregatedData(scAI_outs, group = scAI_outs@identity)
 
 ```
@@ -87,7 +87,7 @@ cellVisualization(scAI_outs, scAI_outs@embed$umap, color.by = "cluster")
 ## Feature plot of the inferred patterns
 We can overlay the expression of features, or the cell loading values onto the low-dimensional space, e.g., VscAI, tsne, umap
 ```{r, fig.width=9, fig.height=2.5,  fig.wide = TRUE, fig.align = "center"}
-featureScoreVisualization(scAI_outs, feature.scores = t(scAI_outs@fit$H), feature.use = c('factor1','factor8','factor2'),  method = "umap", nCol = 3, cell.size = 0.1, show.legend = T, show.legend.combined = F)
+featureScoreVisualization(scAI_outs, feature.scores = t(scAI_outs@fit$H), feature.use = paste0("factor",c(12,10,5)),  method = "umap", nCol = 3, cell.size = 0.1, show.legend = T, show.legend.combined = F)
 ```
 
 ### Ranking the features (genes/loci) and highlighting the important markers in each factor
@@ -96,11 +96,13 @@ feature_genes = c('Slc12a3','Trpm6','Klhl3','Wnk1','Tsc22d1','Cadps2',
                   'Egfem1','Calb1','Kl','Temem72','Dach1','Ptprm','Sgms2','Tox3','Frmpd4',
                   'Rbms3','Fxyd4','Dnm3','Cacnb2','Pde1c','Pde8b')
 
-featureRankingPlot(scAI_outs,assay = 'RNA',  factor.show = c(1, 8, 2), ncol = 3, feature.show = feature_genes, top.p = 0.25, ylabel = "Gene score")
+featureRankingPlot(scAI_outs,assay = 'RNA',  factor.show = c(12,10,5), ncol = 3, feature.show = feature_genes, top.p = 0.25, ylabel = "Gene score")
 ```
 
 ### Identify differentially expressed features of each cell cluster
 ```{r}
+options(future.globals.maxSize = 10*1024 * 1024^2)
+future::plan("multiprocess", workers = 4)
 markers.ATAC.cluster <- identifyClusterMarkers(scAI_outs, assay = 'ATAC')
 ```
 
