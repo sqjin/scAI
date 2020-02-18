@@ -25,11 +25,18 @@ scAI has been implemented as both **R package** and **MATLAB package** under the
 
 ## Installation 
 
-Then scAI R package can be installed from Github using devtools. 
+### scAI R package can be installed from Github using devtools. 
 
 ```
 devtools::install_github("sqjin/scAI")
 ```
+
+### Install from R source codes
+Download source codes [here](https://github.com/sqjin/scAI/blob/master/scAI_1.0.0.tar.gz) and type (in R)
+```
+install.packages(path_to_file, type = 'source', rep = NULL) # The path_to_file would represent the full path and file name
+```
+This [website](https://kbroman.org/pkg_primer/pages/build.html) shows other ways for building and installing an R package.
 
 ## Examples and Walkthroughs
 
