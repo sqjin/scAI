@@ -2,7 +2,6 @@
 # python implementation of scAI optimization model
 # import packages
 import numpy as np
-import numpy.matlib
 from numpy import linalg as LA
 from numpy import matrix
 
@@ -14,39 +13,36 @@ def scAImodel_py(X1,X2,K,S=0.25,Alpha=1,Lambda=10000,Gamma=1,Maxiter = 500,Stop_
     p = d1[0]
     n = d1[1]
     q = d2[0]
+    np.random.seed(Seed)
     if W1 is None:
-        np.random.seed(Seed)
-        W1 = numpy.matlib.rand(p,K)
+        W1 = np.random.rand(p,K)
         
     if W2 is None:
-        np.random.seed(Seed)
-        W2 = numpy.matlib.rand(q,K)
+        W2 = np.random.rand(q,K)
     
     if H is None:
-        np.random.seed(Seed)
-        H = numpy.matlib.rand(K,n)
+        H = np.random.rand(K,n)
     
     if Z is None:
-        np.random.seed(Seed)
-        Z = numpy.matlib.rand(n,n)
+        Z = np.random.rand(n,n)
     
     if R is None:
-        np.random.seed(Seed)
         R = np.random.binomial(1,S,size=(n,n))
     # main function
     XtX2 = np.dot(np.transpose(X2),X2)
     obj_old = 1
-    W1 = np.asarray(W1)
-    W2 = np.asarray(W2)
-    Z = np.asarray(Z)
-    R = np.asarray(R)
+#    W1 = np.asarray(W1)
+#    W2 = np.asarray(W2)
+#    Z = np.asarray(Z)
+#    R = np.asarray(R)
     for iter in range(1,Maxiter+1):
         #  print(iter)
         # normalize H
-        H = matrix(H)
-        lib = np.sum(H,axis = 1)
-        H = H/np.tile(lib,(1,n))
-        H = np.asarray(H)
+#        H = matrix(H)
+#        lib = np.sum(H,axis = 1)
+#        H = H/np.tile(lib,(1,n))
+#        H = np.asarray(H)
+        H = H/H.sum(axis=1,keepdims=1)
         # update W1
         HHt = np.dot(H,np.transpose(H))
         X1Ht = np.dot(X1,np.transpose(H))
@@ -85,6 +81,3 @@ def scAImodel_py(X1,X2,K,S=0.25,Alpha=1,Lambda=10000,Gamma=1,Maxiter = 500,Stop_
     
     return W1, W2, H, Z, R
         
-    
-    
-    
