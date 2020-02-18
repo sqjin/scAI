@@ -23,9 +23,9 @@ Check out [our paper (Suoqin Jin#, Lihua Zhang# & Qing Nie*, Genome Biology, 202
 scAI has been implemented as both **R package** and **MATLAB package** under the license GPL-3. In each package, we provide example workflows that outline the key steps and unique features of scAI. The **MATLAB package and examples** are available [here](https://github.com/amsszlh/scAI).
 
 
-## Installation 
+## Installation of R package
 
-### scAI R package can be installed from Github using devtools. 
+### Install from Github using devtools 
 
 ```
 devtools::install_github("sqjin/scAI")
