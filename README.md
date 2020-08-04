@@ -1,6 +1,6 @@
 # scAI: a single cell Aggregation and Integration method for analyzing single cell multi-omics data
 
-- scAI is an unsupervised approach for integrative analysis of gene expression and chromatin accessibility or DNA methylation proflies measured in the same individual cells.
+- scAI is an unsupervised approach for integrative analysis of gene expression and chromatin accessibility or DNA methylation profiles measured in the same individual cells.
 - scAI infers a set of biologically relevant factors, which enable various downstream analyses, including the identification of cell clusters, cluster-specific markers and regulatory relationships. 
 - scAI provides an intuitive way to visualize features (i.e., genes and loci) alongside the cells in two dimensions.
 - scAI aggegrates chromatin profiles of similar cells in an unsupervised and iterative manner, which opens up new avenues for analyzing extremely sparse, binary scATAC-seq data. 
@@ -68,7 +68,7 @@ object <- run_scAI(object, K, do.fast = TRUE, hvg.use1 = TRUE)
 ```
 - Using informative loci for scATAC-seq or single cell methylation data: 
 
-Unlike scRNA-seq data, the largely binary nature of scATAC-seq data makes it challenging to perform ‘variable’ feature selection. One option is to select the nearby chromsome regions of the informative genes. 
+Unlike scRNA-seq data, the largely binary nature of scATAC-seq data makes it challenging to perform ‘variable’ feature selection. One option is to select the nearby chromosome regions of the informative genes. 
 ```
 object <- selectFeatures(object, assay = "RNA")
 loci.use <- searchGeneRegions(genes = object@var.features[[1]], species = "mouse")
