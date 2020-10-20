@@ -48,7 +48,7 @@ lmHeatmap <- function(object, color.by, colors.use = NULL,do.sampling = T ){
   cell.cols.assigned <- setNames(colors.use, unique(as.character(df$group)))
   col_annotation <- HeatmapAnnotation(df = df, col = list(group = cell.cols.assigned),annotation_name_side = "left",simple_anno_size = grid::unit(0.2, "cm"))
   colormap = structure(rev(brewer.pal(9,"RdBu")))
-
+  H = H + runif(length(H), min = -0.5, max = 0.5)*1e-5
   ht1 = Heatmap(H,name = "H",
                 clustering_method_columns = "average",
                 clustering_distance_columns = "euclidean",
@@ -67,6 +67,7 @@ lmHeatmap <- function(object, color.by, colors.use = NULL,do.sampling = T ){
   W1 <- sweep(W1,1,rowSums(W1),FUN = `/`)
   W1[is.na(W1)] <- 0
   colormap = structure(rev(brewer.pal(11,"RdBu")))
+  W1 = W1 + runif(length(W1), min = -0.5, max = 0.5)*1e-5
   ht2 = Heatmap(W1,name = "W1",
                 clustering_method_rows = "average",
                 col = colormap,
@@ -88,6 +89,7 @@ lmHeatmap <- function(object, color.by, colors.use = NULL,do.sampling = T ){
   }
 
   colormap = structure(rev(brewer.pal(9,"Spectral")))
+  W2 = W2 + runif(length(W2), min = -0.5, max = 0.5)*1e-5
   ht3 = Heatmap(W2,name = "W2",
                 clustering_method_rows = "average",
                 col = colormap,
