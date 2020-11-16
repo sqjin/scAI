@@ -1557,7 +1557,7 @@ selectK <- function(object, rangeK = c(2:15)) {
   gg <- ggplot(df, aes(x = k, y = Coph)) + geom_line(size=1) +
     geom_point() +
     theme_classic() + labs(x = 'K', y='Stability score (Coph)') +
-    labs(title = feature.name) + scAI_theme_opts() + theme(text = element_text(size = 10)) + labs(x = 'K', y='Stability score (Coph)') +
+    scAI_theme_opts() + theme(text = element_text(size = 10)) + labs(x = 'K', y='Stability score (Coph)') +
     theme(legend.position = "right", legend.title = NULL)
   gg
 }
